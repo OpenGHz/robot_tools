@@ -109,6 +109,7 @@ class BaseControlTools(object):
         pose_tolerance,
         direction_tolerance,
         improve=False,
+        last_stage=None,
     ) -> tuple:
         """获得三阶段控制法的当前阶段及其相关偏差量"""
         position_error, rotation_error = cls.coor.get_pose_error_in_axis(
@@ -136,15 +137,23 @@ class BaseControlTools(object):
             position_distance, direction_error = cls.min_rotation_move(
                 position_distance, direction_error
             )
+            if cls._TEST_:
+                print("direction_error:", direction_error)
+            direction_error_abs = abs(direction_error)
             if improve:  # 使用改进三阶段控制法
-                if direction_error < direction_tolerance[0]:
-                    return 2, position_distance
-                elif direction_error >= direction_tolerance[1]:
+                if (
+                    last_stage in [None, 1]
+                    and direction_error_abs > direction_tolerance[0]
+                ) or direction_error_abs > direction_tolerance[1]:
                     return 1, direction_error
-                else:
+                elif direction_error_abs <= direction_tolerance[0]:
+                    return 2, position_distance
+                elif direction_error_abs <= direction_tolerance[1]:
+                    if position_distance < 0:
+                        direction_error *= -1  # 倒车修正
                     return 1.5, (position_distance, direction_error)  # 1.5的bias是个tuple
             else:
-                if abs(direction_error) <= pose_tolerance[2]:
+                if direction_error_abs <= pose_tolerance[2]:
                     return 2, position_distance
                 else:
                     return 1, direction_error
@@ -160,12 +169,18 @@ class BaseControlTools(object):
         limits,
         dead_zone,
         enhance=1,
+        last_stage=None,
     ) -> tuple:
         """改进三阶段底盘位置-速度控制法(增加单轴移动+旋转叠加阶段)"""
         target_linear_velocity = np.zeros(3, dtype=np.float64)
         target_angular_velocity = np.zeros(3, dtype=np.float64)
         stage, bias = self.get_stage_and_bias(
-            target_pose, current_pose, pose_tolerance, direction_tolerance, improve=True
+            target_pose,
+            current_pose,
+            pose_tolerance,
+            direction_tolerance,
+            improve=True,
+            last_stage=last_stage,
         )
         if self._TEST_:
             print("stage:", stage)
@@ -174,8 +189,8 @@ class BaseControlTools(object):
                 bias_r = bias[1]
             else:
                 bias_r = bias
-            target_angular_velocity[2] = self.pose_to_velocity(
-                bias_r, kp[1], limits[1], dead_zone[1]
+            target_angular_velocity[2] = (
+                self.pose_to_velocity(bias_r, kp[1], limits[1], dead_zone[1]) / enhance
             )
         if stage in [1.5, 2]:
             if stage == 1.5:
@@ -185,7 +200,7 @@ class BaseControlTools(object):
             target_linear_velocity[0] = (
                 self.pose_to_velocity(bias_t, kp[0], limits[0], dead_zone[0]) * enhance
             )
-        return target_linear_velocity, target_angular_velocity
+        return (target_linear_velocity, target_angular_velocity), stage
 
     @staticmethod
     def four_steering_wheel_ik(
@@ -237,7 +252,8 @@ class BaseControl(object):
         self._direction_tolerance = 0.2
         self._direction_tolerance_improved = (0.1, 0.3)
         self._wait_tolerance = (0.1, 0.1)
-        self._improve_enhance = 2
+        self._improve_enhance = 1
+        self._last_stage = None
         self._wait_timeout = 5
         self._wait_period = 0.01
         self._move_stop = True
@@ -266,7 +282,7 @@ class BaseControl(object):
     def get_velocity_cmd(self, ignore_stop=False) -> tuple:
         """获取机器人的速度指令"""
         if self._move_stop and not ignore_stop:
-            self._vel_cmd = ((0, 0, 0), (0, 0, 0))
+            self._vel_cmd = (np.array((0, 0, 0)), np.array((0, 0, 0)))
         elif self._move_method == "three_stage":
             self._three_stage_control()
         elif self._move_method == "three_stage_improved":
@@ -275,12 +291,14 @@ class BaseControl(object):
             self._composit_velocity()
         return self._vel_cmd
 
-    def move(self):
+    def move(self, time_out=None) -> bool:
         """移动机器人到最新设置的目标位姿"""
         self._move_stop = False
         start_time = time.time()
-        while (self._get_wait_error() > self._wait_tolerance).any():
-            if time.time() - start_time > self._wait_timeout:
+        self.get_velocity_cmd()  # 防止第一次速度指令为0
+        wait_time = time_out if time_out is not None else self._wait_timeout
+        while (self._vel_cmd[0] != 0).any() and (self._vel_cmd[1] != 0).any():
+            if (time.time() - start_time) > wait_time:
                 print(
                     "Move timeout, the robot may be stuck! The motion will be stopped and the program will continue!"
                 )
@@ -349,8 +367,8 @@ class BaseControl(object):
         self._vel_cmd = velocity
         return velocity
 
-    def _three_stage_control_improved(self):
-        velocity = self._tools.three_stage_control_improved(
+    def _three_stage_control_improved(self) -> tuple:
+        velocity, self._last_stage = self._tools.three_stage_control_improved(
             self.get_target_pose(),
             self.get_current_world_pose(),
             self._wait_tolerance,
@@ -359,7 +377,8 @@ class BaseControl(object):
             (self._linear_limits, self._angular_limits),
             self._velocity_dead_zone,
             enhance=self._improve_enhance,
-        )  # 避免增强退化
+            last_stage=self._last_stage,
+        )
         if self._TEST_:
             print("target_rotation:", self.get_target_pose()[1])
             print("current_rotation:", self.get_current_world_pose()[1])
