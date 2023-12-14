@@ -1,3 +1,6 @@
+""" 目录处理相关函数 """
+
+
 def remove_str_after_target(origin: str, target: str, include: bool = False):
     """从字符串中删除目标字符串之后的内容
     origin:原始字符串
