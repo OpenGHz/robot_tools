@@ -84,7 +84,7 @@ class CoordinateTools(object):
     def get_pose_error_in_axis(
         cls, target_pose: np.ndarray, current_pose: np.ndarray
     ) -> np.ndarray:
-        """得到机器人当前位姿与目标位姿在各个对应轴上的分误差（欧式距离）"""
+        """得到机器人当前位姿与目标位姿在各个对应轴上的分误差"""
         position_error = cls.get_axis_error(target_pose[0], current_pose[0])
         rotation_error = cls.get_axis_error(target_pose[1], current_pose[1])
         return position_error, rotation_error
