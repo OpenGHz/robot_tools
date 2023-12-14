@@ -1,6 +1,7 @@
 import numpy as np
 import time
 from typing import Union
+from threading import Thread
 
 from . import transformations, CoordinateTools
 
@@ -9,7 +10,7 @@ class BaseControlTools(object):
     """机器人底盘运动控制工具类：
     pose(tuple)：
         0:position：（x,y,z）
-        1:rotation：（r,p,y）（欧拉角，按xyz顺序，r:[-pi,pi],p:[pi/2,-pi/2],y:[-pi,pi]）
+        1:rotation：（r,p,y）（欧拉角，按xyz顺序，r:[-pi,pi],p:[pi/2,-pi/2],y:[-pi,pi]）(函数参数设置也可使用四元数，按xyzw顺序)
     velocity(tuple)：
         0:linear：（x,y,z）
         1:angular：（r,p,y）（与rotation对应）
@@ -110,12 +111,15 @@ class BaseControlTools(object):
         direction_tolerance,
         improve=False,
         last_stage=None,
+        new_target=1,
     ) -> tuple:
         """获得三阶段控制法的当前阶段及其相关偏差量"""
         position_error, rotation_error = cls.coor.get_pose_error_in_axis(
             target_pose, current_pose
         )  # 此时rotation_error范围为[-2pi,2pi]
-        rotation_error = cls.coor.change_to_half_pi_scope(
+        if cls._TEST_:
+            print("rotation_raw_error:", rotation_error)
+        rotation_error = cls.coor.change_to_pi_scope(
             rotation_error
         )  # 优弧化：此时rotation_error范围为[-pi,pi]
         position_distance, rotation_distance = cls.coor.norm(
@@ -123,7 +127,15 @@ class BaseControlTools(object):
         ), cls.coor.norm(
             rotation_error
         )  # 计算位置以及姿态（优弧范围内）的距离
-        if position_distance <= pose_tolerance[0]:
+        if cls._TEST_:
+            print("position_error:", position_error)
+            print("rotation_error:", rotation_error)
+            print("position_distance:", position_distance)
+            print("rotation_distance:", rotation_distance)
+            print("new_target:", new_target)
+        if position_distance <= pose_tolerance[0] or (
+            last_stage == 3 and new_target == 0
+        ):
             if rotation_distance <= pose_tolerance[1]:
                 return -1, 0  # end and stop
             else:
@@ -133,7 +145,7 @@ class BaseControlTools(object):
                 (target_pose[0], target_pose[1]), (current_pose[0], current_pose[1])
             )[0]
             direction_error = cls.coor.get_spherical(position_in_robot)[2]
-            # 劣弧处理成优弧
+            # 劣弧处理成优弧（position_distance这时带有正负了）
             position_distance, direction_error = cls.min_rotation_move(
                 position_distance, direction_error
             )
@@ -146,7 +158,7 @@ class BaseControlTools(object):
                     and direction_error_abs > direction_tolerance[0]
                 ) or direction_error_abs > direction_tolerance[1]:
                     return 1, direction_error
-                elif direction_error_abs <= direction_tolerance[0]:
+                elif direction_error_abs <= 0:  # 完全对齐后才开始绝对直线
                     return 2, position_distance
                 elif direction_error_abs <= direction_tolerance[1]:
                     if position_distance < 0:
@@ -170,6 +182,7 @@ class BaseControlTools(object):
         dead_zone,
         enhance=1,
         last_stage=None,
+        new_target=1,
     ) -> tuple:
         """改进三阶段底盘位置-速度控制法(增加单轴移动+旋转叠加阶段)"""
         target_linear_velocity = np.zeros(3, dtype=np.float64)
@@ -181,6 +194,7 @@ class BaseControlTools(object):
             direction_tolerance,
             improve=True,
             last_stage=last_stage,
+            new_target=new_target,
         )
         if self._TEST_:
             print("stage:", stage)
@@ -259,8 +273,14 @@ class BaseControl(object):
         self._move_stop = True
         self._move_method = "three_stage_improved"
         self._current_position = self._current_rotation = None
+        BaseControlTools._TEST_ = self._TEST_
         self._tools = BaseControlTools()
-        self._tools._TEST_ = self._TEST_
+        self._muilti_avoid = {"set": False, "get": False}
+        self._new_target = 1
+        self._avoid_3to1 = False
+        self._position_cmd = np.zeros(3, dtype=np.float64)
+        self._rotation_cmd = np.zeros(3, dtype=np.float64)
+        self._last_orientation_cmd = np.zeros(4, dtype=np.float64)
 
     def move_to(self, position: np.ndarray, rotation: np.ndarray) -> bool:
         """设置并移动机器人到指定的目标位姿"""
@@ -270,10 +290,27 @@ class BaseControl(object):
 
     def set_target_pose(self, position: np.ndarray, rotation: np.ndarray) -> None:
         """设置机器人在世界坐标系下的目标位姿"""
-        if len(rotation) == 4:
+        len_rotation = len(rotation)
+        if self._avoid_3to1:
+            if (position == self._position_cmd).all():
+                if len_rotation == 4:
+                    if (rotation == self._last_orientation_cmd).all():
+                        return
+                elif (rotation == self._rotation_cmd).all():
+                    return
+            else:
+                self._new_target += 1
+        if self._muilti_avoid["set"]:
+            print("Warning: set_target_pose is called before the last is finished!")
+            return
+        else:
+            self._muilti_avoid["set"] = True
+        if len_rotation == 4:
+            self._last_orientation_cmd = rotation
             rotation = transformations.euler_from_quaternion(rotation)
             rotation = np.array(rotation, dtype=np.float64)
         self._position_cmd, self._rotation_cmd = position, rotation
+        self._muilti_avoid["set"] = False
 
     def get_target_pose(self) -> tuple:
         """获取机器人在世界坐标系下的目标位姿"""
@@ -281,6 +318,11 @@ class BaseControl(object):
 
     def get_velocity_cmd(self, ignore_stop=False) -> tuple:
         """获取机器人的速度指令"""
+        if self._muilti_avoid["get"]:
+            print("Warning: get_velocity_cmd is called before the last is finished!")
+            return self._vel_cmd
+        else:
+            self._muilti_avoid["get"] = True
         if self._move_stop and not ignore_stop:
             self._vel_cmd = (np.array((0, 0, 0)), np.array((0, 0, 0)))
         elif self._move_method == "three_stage":
@@ -289,6 +331,9 @@ class BaseControl(object):
             self._three_stage_control_improved()
         else:
             self._composit_velocity()
+        self._muilti_avoid["get"] = False
+        if self._new_target > 0:
+            self._new_target -= 1
         return self._vel_cmd
 
     def move(self, time_out=None) -> bool:
@@ -315,6 +360,9 @@ class BaseControl(object):
         self._wait_tolerance = np.array([position, orientation], dtype=np.float64)
         self._wait_timeout = timeout
         self._wait_period = 1 / frequency
+
+    def avoid_321(self, avoid: bool = True):
+        self._avoid_3to1 = avoid
 
     def set_move_kp(self, tarns: float, rotat: float):
         """设置机器人运动控制的比例增益"""
@@ -378,16 +426,15 @@ class BaseControl(object):
             self._velocity_dead_zone,
             enhance=self._improve_enhance,
             last_stage=self._last_stage,
+            new_target=self._new_target,
         )
         if self._TEST_:
             print("target_rotation:", self.get_target_pose()[1])
             print("current_rotation:", self.get_current_world_pose()[1])
-            print("rotation_error:", self._get_wait_error()[1])
-            print(" ")
             print("target_position:", self.get_target_pose()[0])
             print("current_position:", self.get_current_world_pose()[0])
-            print("position_error:", self._get_wait_error()[0])
             print("velocity cmd:", velocity)
+            print(" ")
         self._vel_cmd = velocity
         return velocity
 
@@ -456,9 +503,7 @@ class BaseControl(object):
 
 if __name__ == "__main__":
     import rospy
-    from geometry_msgs.msg import Pose
-    from threading import Thread
-    from geometry_msgs.msg import Twist
+    from geometry_msgs.msg import Pose, Twist
     from . import to_ros_msgs
 
     rospy.init_node("test_base_control")
