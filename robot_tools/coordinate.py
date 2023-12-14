@@ -9,7 +9,10 @@ class CoordinateTools(object):
     @staticmethod
     def transform_as_matrix(position: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """将相对位姿转换为变换矩阵"""
-        trans_q = transformations.euler_matrix(*rotation)
+        if len(rotation) == 3:
+            trans_q = transformations.euler_matrix(*rotation)
+        elif len(rotation) == 4:
+            trans_q = transformations.quaternion_matrix(rotation)
         trans_t = transformations.translation_matrix(position)
         trans_TF = np.matmul(trans_t, trans_q)
         return trans_TF
