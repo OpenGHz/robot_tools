@@ -1,9 +1,9 @@
+from . import transformations, CoordinateTools
+
 import numpy as np
 import time
 from typing import Union
 from threading import Thread
-
-from . import transformations, CoordinateTools
 
 
 class BaseControlTools(object):
@@ -112,6 +112,8 @@ class BaseControlTools(object):
         improve=False,
         last_stage=None,
         new_target=1,
+        avoid_321=False,
+        same_ignore=False,
     ) -> tuple:
         """获得三阶段控制法的当前阶段及其相关偏差量"""
         position_error, rotation_error = cls.coor.get_pose_error_in_axis(
@@ -133,8 +135,11 @@ class BaseControlTools(object):
             print("position_distance:", position_distance)
             print("rotation_distance:", rotation_distance)
             print("new_target:", new_target)
-        if position_distance <= pose_tolerance[0] or (
-            last_stage == 3 and new_target == 0
+        same_target = same_ignore and new_target == 0
+        if (
+            position_distance <= pose_tolerance[0]
+            or (avoid_321 and last_stage == 3 and new_target == 0)
+            or (last_stage == -1 and same_target)
         ):
             if rotation_distance <= pose_tolerance[1]:
                 return -1, 0  # end and stop
@@ -183,6 +188,8 @@ class BaseControlTools(object):
         enhance=1,
         last_stage=None,
         new_target=1,
+        avoid_321=False,
+        same_ignore=False,
     ) -> tuple:
         """改进三阶段底盘位置-速度控制法(增加单轴移动+旋转叠加阶段)"""
         target_linear_velocity = np.zeros(3, dtype=np.float64)
@@ -195,6 +202,8 @@ class BaseControlTools(object):
             improve=True,
             last_stage=last_stage,
             new_target=new_target,
+            avoid_321=avoid_321,
+            same_ignore=same_ignore,
         )
         if self._TEST_:
             print("stage:", stage)
@@ -277,7 +286,8 @@ class BaseControl(object):
         self._tools = BaseControlTools()
         self._muilti_avoid = {"set": False, "get": False}
         self._new_target = 1
-        self._avoid_3to1 = False
+        self._avoid_321 = False
+        self._same_ignore = False
         self._position_cmd = np.zeros(3, dtype=np.float64)
         self._rotation_cmd = np.zeros(3, dtype=np.float64)
         self._last_orientation_cmd = np.zeros(4, dtype=np.float64)
@@ -291,7 +301,7 @@ class BaseControl(object):
     def set_target_pose(self, position: np.ndarray, rotation: np.ndarray) -> None:
         """设置机器人在世界坐标系下的目标位姿"""
         len_rotation = len(rotation)
-        if self._avoid_3to1:
+        if self._avoid_321:
             if (position == self._position_cmd).all():
                 if len_rotation == 4:
                     if (rotation == self._last_orientation_cmd).all():
@@ -361,8 +371,10 @@ class BaseControl(object):
         self._wait_timeout = timeout
         self._wait_period = 1 / frequency
 
-    def avoid_321(self, avoid: bool = True):
-        self._avoid_3to1 = avoid
+    def avoid_321(self, avoid: bool = True, same_ignore: bool = True):
+        """避免3阶段旋转误差造成的3阶段中、3阶段结束后相同命令引起的退化"""
+        self._avoid_321 = avoid
+        self._same_ignore = same_ignore
 
     def set_move_kp(self, tarns: float, rotat: float):
         """设置机器人运动控制的比例增益"""
@@ -427,6 +439,8 @@ class BaseControl(object):
             enhance=self._improve_enhance,
             last_stage=self._last_stage,
             new_target=self._new_target,
+            avoid_321=self._avoid_321,
+            same_ignore=self._same_ignore,
         )
         if self._TEST_:
             print("target_rotation:", self.get_target_pose()[1])
