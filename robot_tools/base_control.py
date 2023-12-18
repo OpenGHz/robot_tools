@@ -129,7 +129,7 @@ class BaseControlTools(object):
         ), cls.coor.norm(
             rotation_error
         )  # 计算位置以及姿态（优弧范围内）的距离
-        same_target = (same_ignore and new_target == 0)
+        same_target = same_ignore and new_target == 0
         if cls._TEST_:
             print("position_error:", position_error)
             print("rotation_error:", rotation_error)
