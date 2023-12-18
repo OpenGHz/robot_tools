@@ -77,7 +77,9 @@ print(f"  -target_velocity_topic: {target_velocity_topic}")
 current_pose_suber = rospy.Subscriber(
     current_pose_topic, Pose, current_pose_sub, queue_size=1
 )
-target_pose_suber = rospy.Subscriber(target_pose_topic, Pose, target_pose_sub, queue_size=1)
+target_pose_suber = rospy.Subscriber(
+    target_pose_topic, Pose, target_pose_sub, queue_size=1
+)
 puber = rospy.Publisher(target_velocity_topic, Twist, queue_size=1)
 vel_msg = Twist()
 rate = rospy.Rate(200)
