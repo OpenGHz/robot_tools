@@ -129,13 +129,14 @@ class BaseControlTools(object):
         ), cls.coor.norm(
             rotation_error
         )  # 计算位置以及姿态（优弧范围内）的距离
+        same_target = (same_ignore and new_target == 0)
         if cls._TEST_:
             print("position_error:", position_error)
             print("rotation_error:", rotation_error)
             print("position_distance:", position_distance)
             print("rotation_distance:", rotation_distance)
             print("new_target:", new_target)
-        same_target = same_ignore and new_target == 0
+            print("same_target:", same_target)
         if (
             position_distance <= pose_tolerance[0]
             or (avoid_321 and last_stage == 3 and new_target == 0)
@@ -159,7 +160,7 @@ class BaseControlTools(object):
             direction_error_abs = abs(direction_error)
             if improve:  # 使用改进三阶段控制法
                 if (
-                    last_stage in [None, 1]
+                    ((last_stage in [None, 1, -1]) or not same_target)
                     and direction_error_abs > direction_tolerance[0]
                 ) or direction_error_abs > direction_tolerance[1]:
                     return 1, direction_error
