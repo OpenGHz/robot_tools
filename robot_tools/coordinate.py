@@ -6,7 +6,7 @@ from typing import Union
 class CoordinateTools(object):
     """坐标系转换工具类:
     position: 位置，三维向量
-    orientation: 姿态，四元数(xyzw)或欧拉角(rpy, sxyz)
+    orientation: 姿态，四元数(xyzw)或欧拉角(rpy,按sxyz), r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]
     pose: 位姿，位置和姿态的组合;tuple/list, (position, orientation)
     error: target - current；姿态各轴角度误差为向量夹角，即范围为[0,pi]
     """

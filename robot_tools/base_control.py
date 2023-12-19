@@ -10,7 +10,7 @@ class BaseControlTools(object):
     """机器人底盘运动控制工具类：
     pose(tuple)：
         0:position：（x,y,z）
-        1:rotation：（r,p,y）（欧拉角，按xyz顺序，r:[-pi,pi],p:[pi/2,-pi/2],y:[-pi,pi]）(函数参数设置也可使用四元数，按xyzw顺序)
+        1:rotation：（r,p,y）（欧拉角，按xyz顺序，r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]）(函数参数设置也可使用四元数，按xyzw顺序)
     velocity(tuple)：
         0:linear：（x,y,z）
         1:angular：（r,p,y）（与rotation对应）
