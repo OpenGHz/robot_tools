@@ -4,15 +4,22 @@ from typing import Union
 
 
 class CoordinateTools(object):
-    """坐标系转换工具类"""
+    """坐标系转换工具类:
+    position: 位置，三维向量
+    orientation: 姿态，四元数(xyzw)或欧拉角(rpy, sxyz)
+    pose: 位姿，位置和姿态的组合;tuple/list, (position, orientation)
+    error: target - current；姿态各轴角度误差为向量夹角，即范围为[0,pi]
+    """
 
     @staticmethod
-    def transform_as_matrix(position: np.ndarray, rotation: np.ndarray) -> np.ndarray:
+    def transform_as_matrix(
+        position: np.ndarray, orientation: np.ndarray
+    ) -> np.ndarray:
         """将相对位姿转换为变换矩阵"""
-        if len(rotation) == 3:
-            trans_q = transformations.euler_matrix(*rotation)
-        elif len(rotation) == 4:
-            trans_q = transformations.quaternion_matrix(rotation)
+        if len(orientation) == 3:
+            trans_q = transformations.euler_matrix(*orientation)
+        elif len(orientation) == 4:
+            trans_q = transformations.quaternion_matrix(orientation)
         trans_t = transformations.translation_matrix(position)
         trans_TF = np.matmul(trans_t, trans_q)
         return trans_TF
@@ -68,29 +75,41 @@ class CoordinateTools(object):
         return radial_distance, thita, fai
 
     @staticmethod
-    def get_distance(
+    def get_position_distance(
         target_position: np.ndarray, current_position: np.ndarray
     ) -> float:
-        """获取两个点之间的欧式距离(二范数)"""
+        """获取两个位置点之间的距离(欧式距离/向量差的二范数)"""
         return np.linalg.norm(target_position - current_position)
+
+    @classmethod
+    def get_orientation_distance(
+        cls, target_orientation: np.ndarray, current_orientation: np.ndarray
+    ) -> float:
+        """获取两个姿态点之间的距离(各轴所代表的角度向量的夹角构成向量的二范数)"""
+        target_orientation = cls.to_euler(target_orientation)
+        current_orientation = cls.to_euler(current_orientation)
+        raw_error = cls.get_axis_error(target_orientation, current_orientation)
+        good_error = cls.change_to_pi_scope(raw_error)
+        return np.linalg.norm(good_error)
 
     @classmethod
     def get_pose_distance(
         cls, target_pose: np.ndarray, current_pose: np.ndarray
     ) -> np.ndarray:
-        """得到机器人当前位姿与目标位姿的误差（分别计算欧式距离）"""
-        position_dis = cls.get_distance(target_pose[0], current_pose[0])
-        rotation_dis = cls.get_distance(target_pose[1], current_pose[1])
-        return np.array([position_dis, rotation_dis], dtype=np.float64)
+        """得到机器人当前位姿与目标位姿的误差（位置计算欧氏距离；姿态每个轴分别计算向量夹角再得到总体偏差）"""
+        position_dis = cls.get_position_distance(target_pose[0], current_pose[0])
+        orientation_dis = cls.get_orientation_distance(target_pose[1], current_pose[1])
+        return np.array([position_dis, orientation_dis], dtype=np.float64)
 
     @classmethod
     def get_pose_error_in_axis(
         cls, target_pose: np.ndarray, current_pose: np.ndarray
-    ) -> np.ndarray:
-        """得到机器人当前位姿与目标位姿在各个对应轴上的分误差"""
+    ) -> tuple:
+        """得到机器人当前位姿与目标位姿在各个对应轴上的分误差(姿态角度误差为向量夹角，即范围为[0,pi])"""
         position_error = cls.get_axis_error(target_pose[0], current_pose[0])
-        rotation_error = cls.get_axis_error(target_pose[1], current_pose[1])
-        return position_error, rotation_error
+        orientation_error = cls.get_axis_error(target_pose[1], current_pose[1])
+        orientation_error = cls.change_to_pi_scope(orientation_error)
+        return position_error, orientation_error
 
     @staticmethod
     def norm(vector: np.ndarray) -> float:
@@ -116,7 +135,7 @@ class CoordinateTools(object):
     def change_to_pi_scope(
         direction: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
-        """将方向角从[-2pi,2pi]转换为[-pi,pi]（一般用于通过优弧对齐姿态）"""
+        """将角度从[-2pi,2pi]转换为[-pi,pi]（一般用于通过优弧对齐姿态）"""
         if isinstance(direction, np.ndarray):
             direction[direction > np.pi] -= 2 * np.pi
             direction[direction < -np.pi] += 2 * np.pi
@@ -126,6 +145,13 @@ class CoordinateTools(object):
             elif direction < -np.pi:
                 direction += 2 * np.pi
         return direction
+
+    @staticmethod
+    def to_euler(orientation: np.ndarray) -> np.ndarray:
+        """如果输入为四元数则转换为欧拉角，若为欧拉角则直接返回"""
+        if len(orientation) == 4:
+            orientation = transformations.euler_from_quaternion(orientation)
+        return orientation
 
     @classmethod
     def ensure_euler(cls, euler: np.ndarray) -> bool:
