@@ -118,12 +118,7 @@ class BaseControlTools(object):
         """获得三阶段控制法的当前阶段及其相关偏差量"""
         position_error, rotation_error = cls.coor.get_pose_error_in_axis(
             target_pose, current_pose
-        )  # 此时rotation_error范围为[-2pi,2pi]
-        if cls._TEST_:
-            print("rotation_raw_error:", rotation_error)
-        rotation_error = cls.coor.change_to_pi_scope(
-            rotation_error
-        )  # 优弧化：此时rotation_error范围为[-pi,pi]
+        )  # rotation_error范围为[-pi, pi]
         position_distance, rotation_distance = cls.coor.norm(
             position_error
         ), cls.coor.norm(
