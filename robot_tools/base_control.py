@@ -2,7 +2,7 @@ from . import transformations, CoordinateTools
 
 import numpy as np
 import time
-from typing import Union
+from typing import Union, Optional
 from threading import Thread
 
 
@@ -20,7 +20,7 @@ class BaseControlTools(object):
     _TEST_ = False
 
     @staticmethod
-    def pose_to_velocity(
+    def target_pose_to_velocity(
         posi_or_rota: Union[float, np.ndarray], kp, limits: tuple, dead_zone: float
     ) -> Union[float, np.ndarray]:
         """根据目标在机器人坐标系下的位置或姿态和给定参数计算机器人的线速度或角速度"""
@@ -69,14 +69,15 @@ class BaseControlTools(object):
     ) -> tuple:
         """根据目标位姿和当前位姿及给定参数计算机器人的线速度和角速度"""
         raw_linear_velocity, raw_angular_velocity = cls.coor.to_robot_coordinate(
-            (target_pose[0], target_pose[1]), (current_pose[0], current_pose[1])
+            target_pose, current_pose
         )
+        # z轴速度以及y、z轴角速度不受控制，设为0
         raw_linear_velocity[2] = raw_angular_velocity[0] = raw_angular_velocity[1] = 0.0
 
-        target_linear_velocity = cls.pose_to_velocity(
+        target_linear_velocity = cls.target_pose_to_velocity(
             raw_linear_velocity, kp[0], limits[0], dead_zone[0]
         )
-        target_angular_velocity = cls.pose_to_velocity(
+        target_angular_velocity = cls.target_pose_to_velocity(
             raw_angular_velocity, kp[1], limits[1], dead_zone[1]
         )
 
@@ -93,11 +94,11 @@ class BaseControlTools(object):
             target_pose, current_pose, tolerance[:2], tolerance[2], improve=False
         )
         if stage in [1, 3]:
-            target_angular_velocity[2] = self.pose_to_velocity(
+            target_angular_velocity[2] = self.target_pose_to_velocity(
                 bias, kp[1], limits[1], dead_zone[1]
             )
         elif stage == 2:
-            target_linear_velocity[0] = self.pose_to_velocity(
+            target_linear_velocity[0] = self.target_pose_to_velocity(
                 bias, kp[0], limits[0], dead_zone[0]
             )
         return target_linear_velocity, target_angular_velocity
@@ -105,10 +106,10 @@ class BaseControlTools(object):
     @classmethod
     def get_stage_and_bias(
         cls,
-        target_pose,
-        current_pose,
-        pose_tolerance,
-        direction_tolerance,
+        target_pose: tuple,
+        current_pose: tuple,
+        pose_tolerance: tuple,
+        direction_tolerance: Union[float, tuple, None] = None,
         improve=False,
         last_stage=None,
         new_target=1,
@@ -142,9 +143,8 @@ class BaseControlTools(object):
             else:
                 return 3, rotation_error[2]
         else:
-            position_in_robot = cls.coor.to_robot_coordinate(
-                (target_pose[0], target_pose[1]), (current_pose[0], current_pose[1])
-            )[0]
+            pose_in_robot = cls.coor.to_robot_coordinate(target_pose, current_pose)
+            position_in_robot = pose_in_robot[0]
             direction_error = cls.coor.get_spherical(position_in_robot)[2]
             # 劣弧处理成优弧（position_distance这时带有正负了）
             position_distance, direction_error = cls.min_rotation_move(
@@ -166,7 +166,10 @@ class BaseControlTools(object):
                         direction_error *= -1  # 倒车修正
                     return 1.5, (position_distance, direction_error)  # 1.5的bias是个tuple
             else:
-                if direction_error_abs <= pose_tolerance[2]:
+                if (
+                    direction_tolerance is None
+                    and direction_error_abs <= pose_tolerance[2]
+                ) or (direction_error_abs <= direction_tolerance):
                     return 2, position_distance
                 else:
                     return 1, direction_error
@@ -209,7 +212,8 @@ class BaseControlTools(object):
             else:
                 bias_r = bias
             target_angular_velocity[2] = (
-                self.pose_to_velocity(bias_r, kp[1], limits[1], dead_zone[1]) / enhance
+                self.target_pose_to_velocity(bias_r, kp[1], limits[1], dead_zone[1])
+                / enhance
             )
         if stage in [1.5, 2]:
             if stage == 1.5:
@@ -217,7 +221,8 @@ class BaseControlTools(object):
             else:
                 bias_t = bias
             target_linear_velocity[0] = (
-                self.pose_to_velocity(bias_t, kp[0], limits[0], dead_zone[0]) * enhance
+                self.target_pose_to_velocity(bias_t, kp[0], limits[0], dead_zone[0])
+                * enhance
             )
         return (target_linear_velocity, target_angular_velocity), stage
 
@@ -284,8 +289,8 @@ class BaseControl(object):
         self._new_target = 1
         self._avoid_321 = False
         self._same_ignore = False
-        self._position_cmd = np.zeros(3, dtype=np.float64)
-        self._rotation_cmd = np.zeros(3, dtype=np.float64)
+        self._position_target = np.zeros(3, dtype=np.float64)
+        self._rotation_target = np.zeros(3, dtype=np.float64)
         self._last_orientation_cmd = np.zeros(4, dtype=np.float64)
 
     def move_to(self, position: np.ndarray, rotation: np.ndarray) -> bool:
@@ -298,11 +303,11 @@ class BaseControl(object):
         """设置机器人在世界坐标系下的目标位姿"""
         len_rotation = len(rotation)
         if self._avoid_321:
-            if (position == self._position_cmd).all():
+            if (position == self._position_target).all():
                 if len_rotation == 4:
                     if (rotation == self._last_orientation_cmd).all():
                         return
-                elif (rotation == self._rotation_cmd).all():
+                elif (rotation == self._rotation_target).all():
                     return
             else:
                 self._new_target += 1
@@ -315,12 +320,12 @@ class BaseControl(object):
             self._last_orientation_cmd = rotation
             rotation = transformations.euler_from_quaternion(rotation)
             rotation = np.array(rotation, dtype=np.float64)
-        self._position_cmd, self._rotation_cmd = position, rotation
+        self._position_target, self._rotation_target = position, rotation
         self._muilti_avoid["set"] = False
 
     def get_target_pose(self) -> tuple:
         """获取机器人在世界坐标系下的目标位姿"""
-        return self._position_cmd, self._rotation_cmd
+        return self._position_target, self._rotation_target
 
     def get_velocity_cmd(self, ignore_stop=False) -> tuple:
         """获取机器人的速度指令"""
@@ -480,7 +485,7 @@ class BaseControl(object):
     def get_current_world_pose(self) -> tuple:
         """该函数应该返回一个tuple，包含机器人在世界坐标系下的位置和姿态"""
         if self._current_position is None or self._current_rotation is None:
-            return self._position_cmd, self._rotation_cmd
+            return self._position_target, self._rotation_target
         else:
             return self._current_position, self._current_rotation
 
