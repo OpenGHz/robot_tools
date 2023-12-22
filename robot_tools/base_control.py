@@ -2,7 +2,7 @@ from . import transformations, CoordinateTools
 
 import numpy as np
 import time
-from typing import Union, Optional
+from typing import Union
 from threading import Thread
 
 
