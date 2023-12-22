@@ -99,4 +99,5 @@ while not rospy.is_shutdown():
         if (cmd[0] == 0).all() and (cmd[1] == 0).all():
             base_pose_control_flag = False
             print("base pose control finished")
+            rospy.set_param("/airbot/base/control_finished", True)
     rate.sleep()
