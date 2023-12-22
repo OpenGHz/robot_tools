@@ -46,6 +46,7 @@ from geometry_msgs.msg import Pose, Twist
 base_pose_control_flag = False
 last_target_pose = None
 
+
 def current_pose_sub(msg: Pose):
     pos = [msg.position.x, msg.position.y, msg.position.z]
     ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
@@ -78,7 +79,9 @@ print(f"  -current_pose_topic: {current_pose_topic}")
 print(f"  -target_pose_topic: {target_pose_topic}")
 print(f"  -target_velocity_topic: {target_velocity_topic}")
 
-# rospy.wait_for_message(current_pose_topic, Pose, timeout=2)
+print("waiting for current pose...", end="", flush=True)
+rospy.wait_for_message(current_pose_topic, Pose)
+print("OK!")
 current_pose_suber = rospy.Subscriber(
     current_pose_topic, Pose, current_pose_sub, queue_size=1
 )

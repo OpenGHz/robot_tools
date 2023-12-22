@@ -483,7 +483,10 @@ class BaseControl(object):
         self._current_position, self._current_rotation = position, rotation
 
     def get_current_world_pose(self) -> tuple:
-        """该函数应该返回一个tuple，包含机器人在世界坐标系下的位置和姿态"""
+        """
+        获取机器人在世界坐标系下的位置和姿态；
+        若未设置过当前位姿，则返回目标位姿（不论目标位姿是否设置过）；
+        """
         if self._current_position is None or self._current_rotation is None:
             return self._position_target, self._rotation_target
         else:
