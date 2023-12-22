@@ -35,7 +35,7 @@
 from io import BytesIO as StringIO
 from geometry_msgs.msg import Pose, PoseStamped, Transform
 import rospy
-import tf
+from . import transformations
 
 
 def msg_to_string(msg):
@@ -74,7 +74,7 @@ def list_to_pose(pose_list):
         pose_msg.position.x = pose_list[0]
         pose_msg.position.y = pose_list[1]
         pose_msg.position.z = pose_list[2]
-        q = tf.transformations.quaternion_from_euler(
+        q = transformations.quaternion_from_euler(
             pose_list[3], pose_list[4], pose_list[5]
         )
         pose_msg.orientation.x = q[0]
