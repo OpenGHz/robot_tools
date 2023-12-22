@@ -6,7 +6,7 @@ parser.add_argument(
     "-cp",
     "--current_pose_topic",
     type=str,
-    default="/airbot/pose",
+    default="/airbot/base/current_pose",  # /airbot/pose is old
     help="topic name of current pose, the type should be geometry_msgs/Pose",
 )
 parser.add_argument(
@@ -77,6 +77,8 @@ print(f"{node_name} started:")
 print(f"  -current_pose_topic: {current_pose_topic}")
 print(f"  -target_pose_topic: {target_pose_topic}")
 print(f"  -target_velocity_topic: {target_velocity_topic}")
+
+rospy.wait_for_message(current_pose_topic, Pose, timeout=2)
 current_pose_suber = rospy.Subscriber(
     current_pose_topic, Pose, current_pose_sub, queue_size=1
 )
