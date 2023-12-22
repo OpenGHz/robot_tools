@@ -32,14 +32,7 @@
 #
 # Author: Ioan Sucan
 
-try:
-    # Try Python 2.7 behaviour first
-    from StringIO import StringIO
-except ImportError:
-    # Use Python 3.x behaviour as fallback and choose the non-unicode version
-    from io import BytesIO as StringIO
-
-from .exception import MoveItCommanderException
+from io import BytesIO as StringIO
 from geometry_msgs.msg import Pose, PoseStamped, Transform
 import rospy
 import tf
@@ -89,7 +82,7 @@ def list_to_pose(pose_list):
         pose_msg.orientation.z = q[2]
         pose_msg.orientation.w = q[3]
     else:
-        raise MoveItCommanderException(
+        raise Exception(
             "Expected either 6 or 7 elements in list: (x,y,z,r,p,y) or (x,y,z,qx,qy,qz,qw)"
         )
     return pose_msg
