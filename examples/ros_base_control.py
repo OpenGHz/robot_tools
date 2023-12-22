@@ -44,7 +44,7 @@ import numpy as np
 from geometry_msgs.msg import Pose, Twist
 
 base_pose_control_flag = False
-
+last_target_pose = None
 
 def current_pose_sub(msg: Pose):
     pos = [msg.position.x, msg.position.y, msg.position.z]
@@ -56,21 +56,24 @@ def current_pose_sub(msg: Pose):
 
 
 def target_pose_sub(msg: Pose):
-    global base_pose_control_flag
+    global base_pose_control_flag, last_target_pose
     pos = [msg.position.x, msg.position.y, msg.position.z]
     ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
     base_control.set_target_pose(
         np.array(pos, dtype=np.float64), np.array(ori, dtype=np.float64)
     )
-    base_pose_control_flag = True
-    # print("target pose received", pos, ori)
+    # 重复命令排除
+    if last_target_pose != msg:
+        last_target_pose = msg
+        base_pose_control_flag = True
+        # print("target pose received", pos, ori)
 
 
 import rospy
 
 node_name = "base_control_node"
 rospy.init_node(node_name)
-print(f"node {node_name} started:")
+print(f"{node_name} started:")
 print(f"  -current_pose_topic: {current_pose_topic}")
 print(f"  -target_pose_topic: {target_pose_topic}")
 print(f"  -target_velocity_topic: {target_velocity_topic}")
