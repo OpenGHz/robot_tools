@@ -78,7 +78,7 @@ print(f"  -current_pose_topic: {current_pose_topic}")
 print(f"  -target_pose_topic: {target_pose_topic}")
 print(f"  -target_velocity_topic: {target_velocity_topic}")
 
-rospy.wait_for_message(current_pose_topic, Pose, timeout=2)
+# rospy.wait_for_message(current_pose_topic, Pose, timeout=2)
 current_pose_suber = rospy.Subscriber(
     current_pose_topic, Pose, current_pose_sub, queue_size=1
 )
