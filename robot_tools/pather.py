@@ -55,6 +55,12 @@ def get_current_path() -> str:
     return root_path
 
 
+def create_dir(path: str):
+    """如果目录不存在则创建目录"""
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
 try:
     import rospkg
 except:
