@@ -6,31 +6,44 @@ from typing import Union
 class CoordinateTools(object):
     """坐标系转换工具类:
     position: 位置，三维向量
-    orientation: 姿态，四元数(xyzw)或欧拉角(rpy,按sxyz), r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]
+    orientation: 姿态，四元数(xyzw)或欧拉角(rpy,按sxyz;函数返回的姿态为欧拉角), r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]
     pose: 位姿，位置和姿态的组合;tuple/list, (position, orientation)
     error: target - current；姿态各轴角度误差为向量夹角，即范围为[0,pi]
     """
 
     @staticmethod
-    def transform_as_matrix(
-        position: np.ndarray, orientation: np.ndarray
-    ) -> np.ndarray:
-        """将相对位姿转换为变换矩阵"""
+    def to_rotation_matrix(orientation: np.ndarray) -> np.ndarray:
+        """将四元数/欧拉角姿态转换为旋转矩阵"""
         if len(orientation) == 3:
             trans_q = transformations.euler_matrix(*orientation)
         elif len(orientation) == 4:
             trans_q = transformations.quaternion_matrix(orientation)
-        trans_t = transformations.translation_matrix(position)
-        trans_TF = np.matmul(trans_t, trans_q)
-        return trans_TF
+        else:
+            raise ValueError("The length of orientation must be 3 or 4!")
+        return trans_q
+
+    @staticmethod
+    def to_translation_matrix(position: np.ndarray) -> np.ndarray:
+        """将位置转换为平移矩阵"""
+        return transformations.translation_matrix(position)
+
+    @classmethod
+    def to_transform_matrix(
+        cls, position: np.ndarray, orientation: np.ndarray
+    ) -> np.ndarray:
+        """将相对位姿转换为变换矩阵"""
+        trans_t = cls.to_translation_matrix(position)
+        trans_q = cls.to_rotation_matrix(orientation)
+        trans_tf = np.matmul(trans_t, trans_q)
+        return trans_tf
 
     @classmethod
     def to_robot_coordinate(
         cls, target_in_world: tuple, robot_in_world: tuple
     ) -> tuple:
         """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
-        target_in_world = cls.transform_as_matrix(*target_in_world)
-        robot_in_world = cls.transform_as_matrix(*robot_in_world)
+        target_in_world = cls.to_transform_matrix(*target_in_world)
+        robot_in_world = cls.to_transform_matrix(*robot_in_world)
         target_in_robot = np.matmul(np.linalg.inv(robot_in_world), target_in_world)
         t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
             target_in_robot
@@ -42,13 +55,30 @@ class CoordinateTools(object):
         cls, target_in_robot: tuple, robot_in_world: tuple
     ) -> tuple:
         """目标在机器人坐标系下的位姿转换为在世界坐标系下的位姿"""
-        target_in_robot = cls.transform_as_matrix(*target_in_robot)
-        robot_in_world = cls.transform_as_matrix(*robot_in_world)
+        target_in_robot = cls.to_transform_matrix(*target_in_robot)
+        robot_in_world = cls.to_transform_matrix(*robot_in_world)
         target_in_world = np.matmul(robot_in_world, target_in_robot)
         t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
             target_in_world
         )
         return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
+    @classmethod
+    def to_target_orientation(
+        cls, rela_orientation: np.ndarray, current_orientation: np.ndarray
+    ) -> np.ndarray:
+        """根据当前姿态和相对姿态计算目标姿态"""
+        rela_orientation = cls.to_rotation_matrix(rela_orientation)
+        current_orientation = cls.to_rotation_matrix(current_orientation)
+        target_in_base = np.matmul(current_orientation, rela_orientation)
+        return np.array(transformations.euler_from_matrix(target_in_base), dtype=np.float64)
+
+    @classmethod
+    def to_target_position(
+        cls, rela_position: np.ndarray, current_position: np.ndarray
+    ) -> np.ndarray:
+        """根据当前位置和相对位置计算目标位置（仅适用坐标系之间只有平移关系时）"""
+        return rela_position + current_position
 
     @staticmethod
     def get_radial_distance(position: np.ndarray) -> float:
