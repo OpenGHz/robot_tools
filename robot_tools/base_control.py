@@ -71,9 +71,6 @@ class BaseControlTools(object):
         raw_linear_velocity, raw_angular_velocity = cls.coor.to_robot_coordinate(
             target_pose, current_pose
         )
-        # z轴速度以及y、z轴角速度不受控制，设为0
-        raw_linear_velocity[2] = raw_angular_velocity[0] = raw_angular_velocity[1] = 0.0
-
         target_linear_velocity = cls.target_pose_to_velocity(
             raw_linear_velocity, kp[0], limits[0], dead_zone[0]
         )

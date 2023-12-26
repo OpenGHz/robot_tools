@@ -23,14 +23,21 @@ parser.add_argument(
     default="/cmd_vel",
     help="topic name of velocity, the type should be geometry_msgs/Twist",
 )
+parser.add_argument(
+    "-f",
+    "--fly",
+    action="store_true",
+    help="if set, the position z and rotation about x&y will be considered",
+)
 
 args, unknown = parser.parse_known_args()
 
 current_pose_topic = args.current_pose_topic
 target_pose_topic = args.target_pose_topic
 target_velocity_topic = args.target_velocity_topic
+fly = args.fly
 
-from robot_tools import BaseControl
+from robot_tools import BaseControl, transformations
 
 BaseControl._TEST_ = False
 base_control = BaseControl()  # 初始化base位姿控制接口
@@ -50,6 +57,11 @@ last_target_pose = None
 def current_pose_sub(msg: Pose):
     pos = [msg.position.x, msg.position.y, msg.position.z]
     ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
+    if not fly:
+        # enforce the position z and rotation about x&y to be the ignored
+        pos[2] = 0
+        ori = list(transformations.euler_from_quaternion(ori))
+        ori[0] = ori[1] = 0
     base_control.set_current_world_pose(
         np.array(pos, dtype=np.float64), np.array(ori, dtype=np.float64)
     )
@@ -60,6 +72,11 @@ def target_pose_sub(msg: Pose):
     global base_pose_control_flag, last_target_pose
     pos = [msg.position.x, msg.position.y, msg.position.z]
     ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
+    if not fly:
+        # enforce the position z and rotation about x&y to be the ignored
+        pos[2] = 0
+        ori = list(transformations.euler_from_quaternion(ori))
+        ori[0] = ori[1] = 0
     base_control.set_target_pose(
         np.array(pos, dtype=np.float64), np.array(ori, dtype=np.float64)
     )
