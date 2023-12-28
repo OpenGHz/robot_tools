@@ -58,7 +58,7 @@ from geometry_msgs.msg import Pose, PoseStamped, Twist
 
 base_pose_control_flag = False
 last_target_pose = PoseStamped()
-
+last_tolerance = {}
 
 def current_pose_sub(msg: Pose):
     pos = [msg.position.x, msg.position.y, msg.position.z]
@@ -131,6 +131,12 @@ while not rospy.is_shutdown():
     # base pose control
     if base_pose_control_flag:
         rospy.set_param("/airbot/base/control_finished", False)
+        tolerance = rospy.get_param("/airbot/base/tolerance",{})
+        if tolerance != last_tolerance:
+            last_tolerance = tolerance
+            base_control.set_wait_tolerance(tolerance["position"], tolerance["rotation"], 60, 200)
+            base_control.set_direction_tolerance(tolerance["direction"])
+
         cmd = base_control.get_velocity_cmd(ignore_stop=True)
         vel_msg.linear.x = cmd[0][0]
         vel_msg.linear.y = cmd[0][1]
@@ -140,5 +146,5 @@ while not rospy.is_shutdown():
             base_pose_control_flag = False
             print("base pose control finished")
             rospy.set_param("/airbot/base/control_finished", True)
-
+    rospy.set_param("/airbot/base/tolerance",{"position":0.01,"rotation":0.017*2,"direction":(0.002,0.017*90)})
     rate.sleep()
