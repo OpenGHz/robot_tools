@@ -14,7 +14,7 @@ parser.add_argument(
     "--target_pose_topic",
     type=str,
     default="/airbot/base_pose_cmd",  # /base_pose for test
-    help="topic name of target pose, the type should be geometry_msgs/Pose",
+    help="topic name of target pose, the type should be geometry_msgs/PoseStamped",
 )
 parser.add_argument(
     "-vp",
@@ -29,13 +29,19 @@ parser.add_argument(
     action="store_true",
     help="if set, the position z and rotation about x&y will be considered",
 )
-
+parser.add_argument(
+    "-nis",
+    "--not_ignore_same_target",
+    action="store_true",
+    help="if set, the same target pose won't be ignored",
+)
 args, unknown = parser.parse_known_args()
 
 current_pose_topic = args.current_pose_topic
 target_pose_topic = args.target_pose_topic
 target_velocity_topic = args.target_velocity_topic
 fly = args.fly
+not_ignore_same_target = args.not_ignore_same_target
 
 from robot_tools import BaseControl, transformations
 
@@ -48,10 +54,10 @@ base_control.set_wait_tolerance(0.01, 0.017 * 2, 60, 200)
 base_control.avoid_321()
 
 import numpy as np
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, PoseStamped, Twist
 
 base_pose_control_flag = False
-last_target_pose = None
+last_target_pose = PoseStamped()
 
 
 def current_pose_sub(msg: Pose):
@@ -68,23 +74,36 @@ def current_pose_sub(msg: Pose):
     # print("current pose received", pos, ori)
 
 
-def target_pose_sub(msg: Pose):
+def target_pose_sub(msg: PoseStamped):
     global base_pose_control_flag, last_target_pose
-    pos = [msg.position.x, msg.position.y, msg.position.z]
-    ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
+    # 重复命令排除
+    if (
+        not not_ignore_same_target
+        and last_target_pose.pose == msg.pose
+        and last_target_pose.header.frame_id == msg.header.frame_id
+    ):
+        return
+    else:
+        last_target_pose = msg
+    pos = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+    ori = [
+        msg.pose.orientation.x,
+        msg.pose.orientation.y,
+        msg.pose.orientation.z,
+        msg.pose.orientation.w,
+    ]
     if not fly:
         # enforce the position z and rotation about x&y to be the ignored
         pos[2] = 0
         ori = list(transformations.euler_from_quaternion(ori))
         ori[0] = ori[1] = 0
     base_control.set_target_pose(
-        np.array(pos, dtype=np.float64), np.array(ori, dtype=np.float64)
+        np.array(pos, dtype=np.float64),
+        np.array(ori, dtype=np.float64),
+        msg.header.frame_id,
     )
-    # 重复命令排除
-    if last_target_pose != msg:
-        last_target_pose = msg
-        base_pose_control_flag = True
-        # print("target pose received", pos, ori)
+    base_pose_control_flag = True
+    # print("target pose received", pos, ori)
 
 
 import rospy
@@ -103,7 +122,7 @@ current_pose_suber = rospy.Subscriber(
     current_pose_topic, Pose, current_pose_sub, queue_size=1
 )
 target_pose_suber = rospy.Subscriber(
-    target_pose_topic, Pose, target_pose_sub, queue_size=1
+    target_pose_topic, PoseStamped, target_pose_sub, queue_size=1
 )
 puber = rospy.Publisher(target_velocity_topic, Twist, queue_size=1)
 vel_msg = Twist()

@@ -289,6 +289,7 @@ class BaseControl(object):
         self._position_target = np.zeros(3, dtype=np.float64)
         self._rotation_target = np.zeros(3, dtype=np.float64)
         self._last_orientation_cmd = np.zeros(4, dtype=np.float64)
+        self._last_pose_ref = "world"
 
     def move_to(self, position: np.ndarray, rotation: np.ndarray) -> bool:
         """设置并移动机器人到指定的目标位姿"""
@@ -296,11 +297,17 @@ class BaseControl(object):
         result = self.move()
         return result
 
-    def set_target_pose(self, position: np.ndarray, rotation: np.ndarray) -> None:
-        """设置机器人在世界坐标系下的目标位姿"""
+    def set_target_pose(
+        self, position: np.ndarray, rotation: np.ndarray, ref: str = "world"
+    ) -> None:
+        """
+        设置机器人在世界（ref=world）/自身（ref=robot）当前坐标系下的目标位姿；
+        默认为世界坐标系下的目标位姿；
+        """
         len_rotation = len(rotation)
+        # 目标相同是否忽略
         if self._avoid_321:
-            if (position == self._position_target).all():
+            if self._last_pose_ref == ref and (position == self._position_target).all():
                 if len_rotation == 4:
                     if (rotation == self._last_orientation_cmd).all():
                         return
@@ -308,15 +315,26 @@ class BaseControl(object):
                     return
             else:
                 self._new_target += 1
+        # 重复设置目标位姿时的警告
         if self._muilti_avoid["set"]:
             print("Warning: set_target_pose is called before the last is finished!")
             return
         else:
             self._muilti_avoid["set"] = True
-        if len_rotation == 4:
-            self._last_orientation_cmd = rotation
-            rotation = transformations.euler_from_quaternion(rotation)
-            rotation = np.array(rotation, dtype=np.float64)
+        # 设置目标位姿
+        if ref == "robot":
+            position, rotation = self._tools.coor.to_world_coordinate(
+                (position, rotation), self.get_current_world_pose()
+            )
+        else:
+            if ref != "world":
+                print("ref is not 'world' or 'robot', by default 'world' is used!")
+                ref = "world"
+            if len_rotation == 4:
+                self._last_orientation_cmd = rotation
+                rotation = transformations.euler_from_quaternion(rotation)
+                rotation = np.array(rotation, dtype=np.float64)
+        self._last_pose_ref = ref
         self._position_target, self._rotation_target = position, rotation
         self._muilti_avoid["set"] = False
 
