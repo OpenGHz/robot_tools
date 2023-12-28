@@ -146,5 +146,4 @@ while not rospy.is_shutdown():
             base_pose_control_flag = False
             print("base pose control finished")
             rospy.set_param("/airbot/base/control_finished", True)
-    rospy.set_param("/airbot/base/tolerance",{"position":0.01,"rotation":0.017*2,"direction":(0.002,0.017*90)})
     rate.sleep()
