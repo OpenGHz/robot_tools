@@ -111,6 +111,7 @@ rate = rospy.Rate(200)
 while not rospy.is_shutdown():
     # base pose control
     if base_pose_control_flag:
+        rospy.set_param("/airbot/base/control_finished", False)
         cmd = base_control.get_velocity_cmd(ignore_stop=True)
         vel_msg.linear.x = cmd[0][0]
         vel_msg.linear.y = cmd[0][1]
@@ -120,4 +121,5 @@ while not rospy.is_shutdown():
             base_pose_control_flag = False
             print("base pose control finished")
             rospy.set_param("/airbot/base/control_finished", True)
+
     rate.sleep()
