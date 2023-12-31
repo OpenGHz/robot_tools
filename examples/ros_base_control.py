@@ -13,11 +13,11 @@ parser.add_argument(
     "-tp",
     "--target_pose_topic",
     type=str,
-    default="/airbot/base_pose_cmd",  # /base_pose for test
+    default="/airbot/base_pose_cmd",
     help="topic name of target pose, the type should be geometry_msgs/PoseStamped",
 )
 parser.add_argument(
-    "-vp",
+    "-tv",
     "--target_velocity_topic",
     type=str,
     default="/cmd_vel",
