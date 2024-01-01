@@ -61,11 +61,11 @@ if __name__ == "__main__":
     print(trajs4[1])
     print(X)
     print(Y)
-    Z = TrajTools.delete_mixed_by_time(trajs4[2], 0, info4.trajs_num)
-    W = TrajTools.delete_mixed_by_time(
+    Z = TrajTools.delete_mixed_at_time(trajs4[2], 0, info4.trajs_num)
+    W = TrajTools.delete_mixed_at_time(
         trajs4[2], -1, info4.trajs_num, info4.max_points_num
     )
-    print("\ndelete_mixed_by_time test")
+    print("\ndelete_mixed_at_time test")
     print(trajs4[2])
     print(Z)
     print(W)
@@ -119,6 +119,22 @@ if __name__ == "__main__":
     trajs5, info5 = out_put5
     trajs, info = TrajTools.concatenate_trajs((trajs4[2], info4), (trajs5[2], info5))
     print(trajs)
+
+    # normalize_trajs test
+    print("\nnormalize_trajs test")
+    print(trajs4[1])
+    traj_normed1 = TrajTools.normalize_trajs(trajs4[1])
+    traj_normed2 = TrajTools.normalize_trajs(trajs4[1].T, "v")
+    assert np.allclose(
+        traj_normed1, traj_normed2.T
+    ), f"\n{traj_normed1}\n{traj_normed2.T}"
+
+    print(trajs4[2])
+    traj_normed3 = TrajTools.normalize_trajs(trajs4[2], has_nan=True)
+    traj_normed4 = TrajTools.normalize_trajs(trajs4[2].T, "v", has_nan=True)
+    assert np.allclose(
+        TrajTools.delete_nan(traj_normed3), TrajTools.delete_nan(traj_normed4.T)
+    ), f"\n{traj_normed3}\n{traj_normed4.T}"
 
     # TrajsPainter test
     from robot_tools.trajer import TrajsPainter
