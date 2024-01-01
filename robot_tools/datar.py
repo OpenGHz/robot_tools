@@ -1,6 +1,8 @@
 import numpy as np
 from typing import List, Tuple, Dict, Union
 from . import recorder
+from matplotlib import pyplot as plt
+from copy import deepcopy
 
 
 class TrajInfo(object):
@@ -107,6 +109,50 @@ class TrajTools(object):
         return time_trajs.T
 
     @staticmethod
+    def mixed_trajs_from_time_trajs(
+        time_trajs: np.ndarray,
+        trajs_num: int,
+        max_points_num: int,
+        grow_type: str = "h",
+    ) -> np.ndarray:
+        """将按时间组合的轨迹数据还原为按时间拼接的轨迹数据"""
+        if grow_type == "h":
+            return time_trajs.reshape((int(max_points_num * trajs_num), -1)).T
+        else:
+            return time_trajs.reshape((int(max_points_num * trajs_num), -1))
+
+    @staticmethod
+    def mixed_trajs_from_series_trajs(
+        trajs_series: np.ndarray,
+        each_points_num: np.ndarray,
+        trajs_num: int,
+        max_points_num: int,
+        features_num: int = None,
+        grow_type: str = "h",
+    ) -> np.ndarray:
+        """将按轨迹串行拼接的轨迹数据还原为按时间拼接的轨迹数据"""
+        if grow_type != "h":
+            trajs_series = trajs_series.T
+        if features_num is None:
+            features_num = trajs_series.shape[0]
+        trajs_mixed = np.full((features_num, (int(max_points_num * trajs_num))), np.nan)
+        base = 0
+        for i in range(trajs_num):
+            points_num = int(each_points_num[i])
+            arr = trajs_series[:, int(base) : int(base + points_num)]
+            arr_pad = np.pad(
+                arr,
+                ((0, 0), (0, int(max_points_num - points_num))),
+                constant_values=np.nan,
+            )
+            trajs_mixed[:, i::trajs_num] = arr_pad
+            base += points_num
+        if grow_type == "h":
+            return trajs_mixed
+        else:
+            return trajs_mixed.T
+
+    @staticmethod
     def delete_nan_from_time_trajs(time_trajs: np.ndarray) -> np.ndarray:
         """删除按时间组合的轨迹数据中的nan"""
         return time_trajs[~np.isnan(time_trajs).all(axis=1)]
@@ -161,9 +207,262 @@ class TrajTools(object):
         else:
             return "h"
 
+    @staticmethod
+    def get_traj_from_mixed_trajs(
+        trajs_mixed: np.ndarray, traj_index: int, trajs_num: int, grow_type: str = "h"
+    ) -> np.ndarray:
+        """从按时间拼接的轨迹数据中获取某个轨迹"""
+        if grow_type == "h":
+            return trajs_mixed[:, traj_index::trajs_num]
+        else:
+            return trajs_mixed[traj_index::trajs_num, :]
+
+    @staticmethod
+    def get_traj_from_series_trajs(
+        trajs_series: np.ndarray,
+        each_points_num: np.ndarray,
+        traj_index: int,
+        trajs_num: int = None,
+        grow_type: str = "h",
+    ) -> np.ndarray:
+        """从按轨迹串行拼接的轨迹数据中获取某个轨迹"""
+        if traj_index < 0:
+            if trajs_num is None:
+                trajs_num = len(each_points_num)
+            traj_index = trajs_num + traj_index
+        sum_each_points_num = np.sum(each_points_num[:traj_index])
+        start = int(sum_each_points_num)
+        end = int(sum_each_points_num + each_points_num[traj_index])
+
+        if grow_type == "h":
+            return trajs_series[:, start:end]
+        else:
+            return trajs_series[start:end, :]
+
+    @staticmethod
+    def delete_nan(trajs: np.ndarray, axis: int = 0) -> np.ndarray:
+        """按行（axis=1）/列（axis=0）删除数组中的nan"""
+        if axis == 0:
+            return trajs[:, ~np.any(np.isnan(trajs), axis=0)]
+        elif axis == 1:
+            return trajs[np.all(~np.isnan(trajs), axis=1)]
+
+    @staticmethod
+    def concatenate_trajs(*args, grow_type="h"):
+        """将轨迹根据grow_type进行拼接"""
+        type2axis = {"h": 0, "v": 1}
+        trajs, infos = args[0]
+        infos = deepcopy(infos)
+        for traj, info in args[1:]:
+            trajs = np.concatenate((trajs, traj), type2axis[grow_type])
+            # infos: TrajInfo
+            # info: TrajInfo
+            infos.features_num += info.features_num
+        return trajs, infos
+
 
 class Trajer(object):
     traj_tool = TrajTools
 
     def __init__(self) -> None:
         pass
+
+
+class TrajsPainter(object):
+    traj_tool = TrajTools
+
+    def __init__(
+        self, trajs: np.ndarray, info: TrajInfo, type: str = "mixed_h"
+    ) -> None:
+        """给定轨迹及其对应的类型（目前支持series_v、series_h、mixed_v、mixed_h、time_trajs、traj_times）"""
+        self.features_axis_labels = tuple(
+            [rf"$x_{i}$" for i in range(info.features_num)]
+        )
+        self.features_lines = ("k",) * info.features_num
+        self.features_scatters = (None,) * info.features_num
+        self.features_sharex = True
+        self.features_sharetitle = "Features Trajectories"
+        self.features_titles = ("2D Trajs",) * info.features_num
+        self.features_self_labels = (None,) * info.features_num
+        self.trajs_colors = None
+        self.time_label = r"$t$"
+        self.figure_size = (12, 4)
+        self.save_path = None
+        self.update_trajs(trajs, info, type)
+
+    def get_trajs_and_info(self) -> Tuple[np.ndarray, TrajInfo]:
+        return self.trajs, self.trajs_info
+
+    def update_trajs(self, trajs: np.ndarray, info: TrajInfo, type: str = "mixed_h"):
+        if type in ["series_v", "traj_times", "mixed_v"]:
+            # 统一转换为水平增长的轨迹
+            trajs = trajs.T
+        # 统一转换成mixed类型轨迹
+        if "series" in type:
+            trajs = TrajTools.mixed_trajs_from_series_trajs(
+                trajs,
+                info.each_points_num,
+                info.trajs_num,
+                info.max_points_num,
+                info.features_num,
+            )
+        elif "time" in type:
+            trajs = TrajTools.mixed_trajs_from_time_trajs(
+                trajs, info.trajs_num, info.max_points_num
+            )
+        self.trajs_info = info
+        self.trajs = trajs
+
+    def config_2D(self, labels=(None, None), title=None, save_path=None):
+        self.features_axis_labels[0] = (
+            labels[0] if labels[0] is not None else self.features_axis_labels[0]
+        )
+        self.features_axis_labels[1] = (
+            labels[1] if labels[1] is not None else self.features_axis_labels[1]
+        )
+        self.features_titles = title if title is not None else self.features_titles
+        self.save_path = save_path if save_path is not None else self.save_path
+
+    def plot_features_with_t(
+        self,
+        points: tuple,
+        trajs: tuple,
+        indexes: tuple,
+        dT: float = 1,
+        row_col: tuple = None,
+        given_axs=None,
+        return_axs=None,
+    ):
+        start_point = points[0]
+        end_point = points[1]
+        start_traj = trajs[0]
+        end_traj = trajs[1]
+        assert end_point <= self.trajs_info.max_points_num, "end_point is too large"
+        # Time vector
+        t = np.arange(0, (end_point - start_point) * dT, dT)
+        # Visualize start->end steps of the training data
+        if given_axs is None:
+            if row_col is None:
+                row_col = (len(indexes), 1)
+            fig, axs = plt.subplots(
+                *row_col,
+                sharex=self.features_sharex,
+                tight_layout=True,
+                figsize=self.figure_size,
+            )
+        else:
+            axs = given_axs
+        for traj_idx in range(start_traj, end_traj):
+            x = self.trajs[:, traj_idx :: self.trajs_info.trajs_num]  # 从mixed中采样一个轨迹的点
+            # 画出所有按index指定的features
+            for index in indexes:
+                if self.features_scatters[0] is not None:
+                    axs[index].scatter(
+                        t[start_point:end_point],
+                        x[index, start_point:end_point],
+                        marker=self.features_scatters[index][0],
+                        color=self.features_scatters[index][1],
+                        alpha=0.3,
+                    )
+                else:
+                    axs[index].plot(
+                        t[start_point:end_point],
+                        x[index, start_point:end_point],
+                        self.features_lines[index],
+                        alpha=0.3,
+                        label=self.features_self_labels[index],
+                    )
+                    axs[index].legend(loc="best")
+        end_index = indexes[-1]
+        for index in indexes:
+            if index != end_index:
+                axs[index].set(ylabel=self.features_axis_labels[index])
+            else:
+                axs[index].set(
+                    ylabel=self.features_axis_labels[index], xlabel=self.time_label
+                )
+            if self.features_sharetitle is None:
+                axs[index].set(title=self.features_titles[index])
+        if self.features_sharetitle is not None:
+            axs[0].set(title=self.features_sharetitle)
+
+        if self.save_path is not None:
+            plt.savefig(self.save_path)
+        if return_axs:
+            return axs
+        else:
+            plt.show()
+
+    def plot_2D_features(self):
+        pass
+
+    @staticmethod
+    def draw_trajs(
+        trajs: np.ndarray,
+        each_points_num: np.ndarray,
+        max_points_num: int,
+        features_num: int,
+        title: str = None,
+        save_path: str = None,
+        show: bool = True,
+    ):
+        """画轨迹图"""
+        import matplotlib.pyplot as plt
+
+        trajs_num = len(each_points_num)
+        if features_num == 1:
+            time_trajs = np.full((int(max_points_num), trajs_num), np.nan)
+        else:
+            time_trajs = np.full((int(max_points_num), trajs_num, features_num), np.nan)
+        base = 0
+        for i in range(trajs_num):
+            points_num = int(each_points_num[i])
+            time_trajs[:points_num, i] = trajs[base : base + points_num, i]
+            base += points_num
+        if features_num == 1:
+            plt.plot(time_trajs)
+        else:
+            for i in range(features_num):
+                plt.plot(time_trajs[:, :, i])
+        if title is not None:
+            plt.title(title)
+        if save_path is not None:
+            plt.savefig(save_path)
+        if show:
+            plt.show()
+        plt.close()
+
+    @staticmethod
+    def draw_traj(
+        traj: np.ndarray,
+        title: str = None,
+        save_path: str = None,
+        show: bool = True,
+    ):
+        """画轨迹图"""
+        import matplotlib.pyplot as plt
+
+        if len(traj.shape) == 1:
+            plt.plot(traj)
+        else:
+            for i in range(traj.shape[1]):
+                plt.plot(traj[:, i])
+        if title is not None:
+            plt.title(title)
+        if save_path is not None:
+            plt.savefig(save_path)
+        if show:
+            plt.show()
+        plt.close()
+
+    @staticmethod
+    def draw_trajs_from_time_trajs(
+        time_trajs: np.ndarray,
+        title: str = None,
+        save_path: str = None,
+        show: bool = True,
+    ):
+        """画轨迹图"""
+        import matplotlib.pyplot as plt
+
+        trajs = TrajTools.traj_times_from_time_trajs
