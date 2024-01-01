@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict, Union
 from . import recorder
 from matplotlib import pyplot as plt
 from copy import deepcopy
+from . import datar
 
 
 class TrajInfo(object):
@@ -152,6 +153,40 @@ class TrajTools(object):
         else:
             return trajs_mixed.T
 
+    @classmethod
+    def to_mixed_trajs(
+        cls,
+        trajs: np.ndarray,
+        info: TrajInfo,
+        in_type: str,
+        out_type: str = "h",
+    ) -> np.ndarray:
+        """
+        将轨迹数据从in_type转换为mixed_out_type；
+        in_type: series_v, series_h, mixed_v, mixed_h, time_trajs, traj_times；
+        out_type: v, h；
+        """
+        if "v" in in_type or in_type == "traj_times":
+            # 方向统一
+            trajs = trajs.T
+        # 统一转换成mixed类型轨迹
+        if "series" in in_type:
+            trajs = TrajTools.mixed_trajs_from_series_trajs(
+                trajs,
+                info.each_points_num,
+                info.trajs_num,
+                info.max_points_num,
+                info.features_num,
+            )
+        elif "time" in in_type:
+            trajs = TrajTools.mixed_trajs_from_time_trajs(
+                trajs, info.trajs_num, info.max_points_num
+            )
+        if out_type == "h":
+            return trajs
+        else:
+            return trajs.T
+
     @staticmethod
     def delete_nan_from_time_trajs(time_trajs: np.ndarray) -> np.ndarray:
         """删除按时间组合的轨迹数据中的nan"""
@@ -177,24 +212,89 @@ class TrajTools(object):
     def delete_mixed_at_time(
         trajs_mixed: np.ndarray,
         index: int,
-        trajs_num: int,
-        max_points_num: int = None,
+        trajs_info: TrajInfo,
         grow_type: str = "h",
-    ) -> np.ndarray:
-        """删除按时间拼接的轨迹数据中的某个位置的轨迹（通常是第一个和最后一个）"""
+    ) -> Tuple[np.ndarray, TrajInfo]:
+        """
+        删除按时间拼接的轨迹数据中的某个位置的轨迹（通常是第一个和最后一个）;
+        index为负数时，表示从后往前数的第几个轨迹，此时必须给定max_points_num；
+        删除后的轨迹的最大轨迹点数max_points_num减少1；
+        每个轨迹的点数each_points_num若本小于index则不变；
+        若each_points_num中某个位置为0，则删除该位置对应的轨迹，导致轨迹数减少（移除全部单点轨迹）；
+        """
         axis = 0 if grow_type == "v" else 1
         if index < 0:
-            assert (
-                max_points_num is not None
-            ), "max_points_num must be given when index < 0"
-            index = max_points_num + index
-        start = int(index * trajs_num)
-        end = int((index + 1) * trajs_num)
-        return np.delete(
+            index = trajs_info.max_points_num + index
+        start = int(index * trajs_info.trajs_num)
+        end = int((index + 1) * trajs_info.trajs_num)
+        new_trajs = np.delete(
             trajs_mixed,
             slice(start, end, 1),
             axis=axis,
         )
+        # 更新trajs_info
+        trajs_info_new = deepcopy(trajs_info)
+        trajs_info_new.max_points_num -= 1
+        each_points_num = trajs_info_new.each_points_num.copy()
+        each_points_num[each_points_num > index] -= 1
+        trajs_slices = np.where(each_points_num <= 0)[0]
+        len_slices = len(trajs_slices)
+        if len_slices > 0:
+            each_points_num = np.delete(each_points_num, trajs_slices)
+            trajs_len = int(trajs_info_new.trajs_num * trajs_info_new.max_points_num)
+            trajs_num = trajs_info_new.trajs_num
+            for i in trajs_slices:
+                new_trajs = np.delete(
+                    new_trajs, slice(i, trajs_len, trajs_num), axis=axis
+                )
+                trajs_len -= 1
+            trajs_info_new.each_points_num = each_points_num
+            trajs_info_new.trajs_num -= len_slices
+
+        return new_trajs, trajs_info_new
+
+    @staticmethod
+    def delete_mixed_at_traj(
+        trajs_mixed: np.ndarray,
+        index: int,
+        trajs_info: TrajInfo,
+        grow_type: str = "h",
+    ) -> Tuple[np.ndarray, TrajInfo]:
+        """
+        从按时间拼接的轨迹数据中删除某个轨迹；
+        index为负数时，表示从后往前数的第几个轨迹；
+        删除后轨迹数减少1；若删除的轨迹点数等于唯一的最大轨迹点数，则最大点数max_points_num也减少至第二大；
+        """
+        trajs_num = trajs_info.trajs_num
+        trajs_len = int(trajs_num * trajs_info.max_points_num)
+        axis = 0 if grow_type == "v" else 1
+        if index < 0:
+            index = trajs_num + index
+        trajs_new = np.delete(
+            trajs_mixed, slice(index, trajs_len, trajs_num), axis=axis
+        )
+        trajs_info_new = deepcopy(trajs_info)
+        trajs_info_new.each_points_num = np.delete(
+            trajs_info_new.each_points_num, index
+        )
+        trajs_info_new.trajs_num -= 1
+        # 若删除的轨迹点数等于唯一的最大轨迹点数，需要更新max_points_num
+        points_num = trajs_info.each_points_num[index]
+        max_points_num = trajs_info.max_points_num
+        if points_num == max_points_num:
+            # 确保最大点唯一性
+            if len(np.where(trajs_info.each_points_num == max_points_num)) == 1:
+                trajs_num = trajs_info_new.trajs_num
+                trajs_len = int(trajs_num * trajs_info_new.max_points_num)
+                # 还需删除轨迹的最后一组点
+                trajs_info_new.max_points_num = np.max(trajs_info_new.each_points_num)
+                delta_max = max_points_num - trajs_info_new.max_points_num
+                trajs_new = np.delete(
+                    trajs_new,
+                    slice(int(trajs_len - delta_max * trajs_num), trajs_len),
+                    axis=axis,
+                )
+        return trajs_new, trajs_info_new
 
     @staticmethod
     def get_grow_type(trajs: np.ndarray):
@@ -211,7 +311,7 @@ class TrajTools(object):
     def get_traj_from_mixed_trajs(
         trajs_mixed: np.ndarray, traj_index: int, trajs_num: int, grow_type: str = "h"
     ) -> np.ndarray:
-        """从按时间拼接的轨迹数据中获取某个轨迹"""
+        """从按时间（轨迹点顺序）拼接的轨迹数据中获取某个轨迹"""
         if grow_type == "h":
             return trajs_mixed[:, traj_index::trajs_num]
         else:
@@ -225,7 +325,7 @@ class TrajTools(object):
         trajs_num: int = None,
         grow_type: str = "h",
     ) -> np.ndarray:
-        """从按轨迹串行拼接的轨迹数据中获取某个轨迹"""
+        """从按轨迹依次串行拼接的轨迹数据中获取某个轨迹"""
         if traj_index < 0:
             if trajs_num is None:
                 trajs_num = len(each_points_num)
@@ -238,6 +338,11 @@ class TrajTools(object):
             return trajs_series[:, start:end]
         else:
             return trajs_series[start:end, :]
+
+    @staticmethod
+    def has_nan(trajs: np.ndarray) -> bool:
+        """检查数组中是否有nan"""
+        return np.any(np.isnan(trajs))
 
     @staticmethod
     def delete_nan(trajs: np.ndarray, axis: int = 0) -> np.ndarray:

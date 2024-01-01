@@ -25,11 +25,11 @@ if __name__ == "__main__":
     # 三维测试
     test_data = {
         "0": {
-            "observation": [[1, 2, 3], [3, 4, 5]],
+            "observation": [[1, 2, 3]],  # 单点轨迹
             "action": [[4, 5, 6], [6, 7, 8]],
-            "num": 2,
+            "num": 1,
         },
-        "1": {
+        "1": {  # 唯一最大点轨迹
             "observation": [[5, 6, 0], [6, 7, 0], [7, 8, 0]],
             "action": [[7, 8, 0], [8, 9, 0], [9, 1, 0]],
             "num": 3,
@@ -61,15 +61,21 @@ if __name__ == "__main__":
     print(trajs4[1])
     print(X)
     print(Y)
-    Z = TrajTools.delete_mixed_at_time(trajs4[2], 0, info4.trajs_num)
-    W = TrajTools.delete_mixed_at_time(
-        trajs4[2], -1, info4.trajs_num, info4.max_points_num
-    )
+    A, A_info = TrajTools.delete_mixed_at_traj(trajs4[2], 0, info4)
+    B, B_info = TrajTools.delete_mixed_at_traj(trajs4[2], -1, info4)
+    print("\ndelete_mixed_at_traj test")
+    print(trajs4[2])
+    print(A)
+    print(B)
+    assert A_info.max_points_num == info4.max_points_num
+    assert B_info.max_points_num == info4.each_points_num[0]
+    Z, Z_info = TrajTools.delete_mixed_at_time(trajs4[2], 0, info4)
+    W, W_info = TrajTools.delete_mixed_at_time(trajs4[2], -1, info4)
     print("\ndelete_mixed_at_time test")
     print(trajs4[2])
     print(Z)
     print(W)
-
+    assert Z_info.trajs_num == 1
     # get traj from mixed test
     print("\nget_traj_from_mixed_trajs test")
     traj = TrajTools.get_traj_from_mixed_trajs(trajs4[2], 0, info4.trajs_num)
