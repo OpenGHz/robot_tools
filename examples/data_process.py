@@ -125,12 +125,13 @@ if __name__ == "__main__":
 
     print("\nTrajsPainter test")
     obs_painter = TrajsPainter(trajs4[2], info4)
-    print(obs_painter.trajs)
-    traj_draw_num = 1
+    print(obs_painter._trajs)
+
+    traj_draw = (0,)
     # get axs to draw more on the same figures
     obs_painter.features_self_labels = ("experimental group",) * info4.features_num
     axs = obs_painter.plot_features_with_t(
-        (0, 3), (0, traj_draw_num), (0, 1, 2), return_axs=True
+        (0, 3), traj_draw, (0, 1, 2), return_axs=True
     )
     obs_painter.update_trajs(trajs5[2], info5)
     trajs, info = obs_painter.get_trajs_and_info()
@@ -138,4 +139,14 @@ if __name__ == "__main__":
     obs_painter.features_lines = ("r",) * info.features_num
     obs_painter.features_self_labels = ("control group",) * info.features_num
     # 可以指定不同的特征重复画
-    obs_painter.plot_features_with_t((0, 3), (0, traj_draw_num), (0, 2), given_axs=axs)
+    obs_painter.set_pause(1)
+    obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axs=axs)
+
+    # plot_2D_features test
+    print(obs_painter.get_trajs_and_info()[0])
+    axs = obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), return_axs=True)
+    obs_painter.update_trajs(trajs4[2], info4)
+    obs_painter.trajs_labels = r"$trajectories_2$"
+    obs_painter.trajs_lines = "->r"
+    obs_painter.trajs_markersize = 3
+    obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), given_axs=axs)

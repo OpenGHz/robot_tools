@@ -275,6 +275,8 @@ class TrajsPainter(object):
         self, trajs: np.ndarray, info: TrajInfo, type: str = "mixed_h"
     ) -> None:
         """给定轨迹及其对应的类型（目前支持series_v、series_h、mixed_v、mixed_h、time_trajs、traj_times）"""
+        self.update_trajs(trajs, info, type)
+        # 特征参数配置，一般用于绘制feature-time图
         self.features_axis_labels = tuple(
             [rf"$x_{i}$" for i in range(info.features_num)]
         )
@@ -282,16 +284,20 @@ class TrajsPainter(object):
         self.features_scatters = (None,) * info.features_num
         self.features_sharex = True
         self.features_sharetitle = "Features Trajectories"
-        self.features_titles = ("2D Trajs",) * info.features_num
+        self.features_titles = ("Features Trajs",) * info.features_num
         self.features_self_labels = (None,) * info.features_num
-        self.trajs_colors = None
         self.time_label = r"$t$"
+        # 轨迹参数配置，一般用于绘制2Dfeatures轨迹图
+        self.trajs_lines = "-ok"
+        self.trajs_labels = r"$trajectories_1$"
+        self.trajs_markersize = 5
+        # 通用绘图参数配置
         self.figure_size = (12, 4)
         self.save_path = None
-        self.update_trajs(trajs, info, type)
+        self.plt_pause = 0
 
     def get_trajs_and_info(self) -> Tuple[np.ndarray, TrajInfo]:
-        return self.trajs, self.trajs_info
+        return self._trajs, self._trajs_info
 
     def update_trajs(self, trajs: np.ndarray, info: TrajInfo, type: str = "mixed_h"):
         if type in ["series_v", "traj_times", "mixed_v"]:
@@ -310,8 +316,8 @@ class TrajsPainter(object):
             trajs = TrajTools.mixed_trajs_from_time_trajs(
                 trajs, info.trajs_num, info.max_points_num
             )
-        self.trajs_info = info
-        self.trajs = trajs
+        self._trajs_info = info
+        self._trajs = trajs
 
     def config_2D(self, labels=(None, None), title=None, save_path=None):
         self.features_axis_labels[0] = (
@@ -323,6 +329,16 @@ class TrajsPainter(object):
         self.features_titles = title if title is not None else self.features_titles
         self.save_path = save_path if save_path is not None else self.save_path
 
+    def set_pause(self, time: float):
+        self.plt_pause = time
+
+    def show(self, pause: float = 0):
+        block = False if pause > 0 else True
+        plt.show(block=block)
+        if not block:
+            plt.pause(pause)
+            plt.close()
+
     def plot_features_with_t(
         self,
         points: tuple,
@@ -333,11 +349,10 @@ class TrajsPainter(object):
         given_axs=None,
         return_axs=None,
     ):
+        """points是连贯的点，而trajs和indexes是指定的序号，可以不连贯"""
         start_point = points[0]
         end_point = points[1]
-        start_traj = trajs[0]
-        end_traj = trajs[1]
-        assert end_point <= self.trajs_info.max_points_num, "end_point is too large"
+        assert end_point <= self._trajs_info.max_points_num, "end_point is too large"
         # Time vector
         t = np.arange(0, (end_point - start_point) * dT, dT)
         # Visualize start->end steps of the training data
@@ -352,9 +367,12 @@ class TrajsPainter(object):
             )
         else:
             axs = given_axs
-        for traj_idx in range(start_traj, end_traj):
-            x = self.trajs[:, traj_idx :: self.trajs_info.trajs_num]  # 从mixed中采样一个轨迹的点
+        for traj_idx in trajs:
+            x = self._trajs[
+                :, traj_idx :: self._trajs_info.trajs_num
+            ]  # 从mixed中采样一个轨迹的点
             # 画出所有按index指定的features
+            end_index = indexes[-1]
             for index in indexes:
                 if self.features_scatters[0] is not None:
                     axs[index].scatter(
@@ -373,16 +391,15 @@ class TrajsPainter(object):
                         label=self.features_self_labels[index],
                     )
                     axs[index].legend(loc="best")
-        end_index = indexes[-1]
-        for index in indexes:
-            if index != end_index:
-                axs[index].set(ylabel=self.features_axis_labels[index])
-            else:
-                axs[index].set(
-                    ylabel=self.features_axis_labels[index], xlabel=self.time_label
-                )
-            if self.features_sharetitle is None:
-                axs[index].set(title=self.features_titles[index])
+
+                if index != end_index:
+                    axs[index].set(ylabel=self.features_axis_labels[index])
+                else:
+                    axs[index].set(
+                        ylabel=self.features_axis_labels[index], xlabel=self.time_label
+                    )
+                if self.features_sharetitle is None:
+                    axs[index].set(title=self.features_titles[index])
         if self.features_sharetitle is not None:
             axs[0].set(title=self.features_sharetitle)
 
@@ -391,10 +408,53 @@ class TrajsPainter(object):
         if return_axs:
             return axs
         else:
-            plt.show()
+            self.show(self.plt_pause)
 
-    def plot_2D_features(self):
-        pass
+    def plot_2D_features(
+        self,
+        points: tuple,
+        trajs: tuple,
+        indexes: tuple,
+        fmt: str = "-ok",
+        title: str = None,
+        given_axs=None,
+        return_axs=None,
+    ):
+        trajs_num = self._trajs_info.trajs_num
+        start = points[0]
+        end = points[1]
+        start_bias = int(start * trajs_num)
+        end_index = int((end + 1) * trajs_num)
+        # Visualize first 100 steps of the training data
+        if given_axs:
+            axs = given_axs
+        else:
+            fig, axs = plt.subplots(1, 1, tight_layout=True, figsize=(4, 4))
+        for traj_idx in trajs:
+            start_index = int(traj_idx + start_bias)
+            axs.plot(
+                self._trajs[indexes[0], start_index:end_index:trajs_num],
+                self._trajs[indexes[1], start_index:end_index:trajs_num],
+                self._trajs_lines[traj_idx],
+                markersize=self._trajs_markersize[traj_idx],
+                label=self._trajs_labels[traj_idx],
+            )
+        # 仅在不给定axs时创建轴和标题
+        if not given_axs:
+            axs.set(
+                ylabel=self.features_axis_labels[indexes[1]],
+                xlabel=self.features_axis_labels[indexes[0]],
+            )
+            if title is None:
+                title = "training data. num traj = {}, max time steps = {}".format(
+                    len(trajs), points[1] - points[0]
+                )
+            axs.set_title(title)
+        if return_axs:
+            return axs
+        else:
+            axs.legend(loc="best")
+            self.show(self.plt_pause)
 
     @staticmethod
     def draw_trajs(
@@ -466,3 +526,38 @@ class TrajsPainter(object):
         import matplotlib.pyplot as plt
 
         trajs = TrajTools.traj_times_from_time_trajs
+
+    @property
+    def trajs_labels(self):
+        return self._trajs_labels
+
+    @trajs_labels.setter
+    def trajs_labels(self, labels: Union[str, tuple]):
+        if isinstance(labels, str):
+            self._trajs_labels = tuple(
+                [labels] + [None] * (self._trajs_info.trajs_num - 1)
+            )
+        else:
+            self._trajs_labels = labels
+
+    @property
+    def trajs_lines(self):
+        return self._trajs_lines
+
+    @trajs_lines.setter
+    def trajs_lines(self, lines: Union[str, tuple]):
+        if isinstance(lines, str):
+            self._trajs_lines = tuple([lines] * self._trajs_info.trajs_num)
+        else:
+            self._trajs_lines = lines
+
+    @property
+    def trajs_markersize(self):
+        return self._trajs_markersize
+
+    @trajs_markersize.setter
+    def trajs_markersize(self, markersize: Union[int, tuple]):
+        if isinstance(markersize, int):
+            self._trajs_markersize = tuple([markersize] * self._trajs_info.trajs_num)
+        else:
+            self._trajs_markersize = markersize
