@@ -1,4 +1,4 @@
-from robot_tools.datar import TrajTools
+from robot_tools.trajer import TrajTools
 import numpy as np
 
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     print(trajs)
 
     # TrajsPainter test
-    from robot_tools.datar import TrajsPainter
+    from robot_tools.trajer import TrajsPainter
 
     print("\nTrajsPainter test")
     obs_painter = TrajsPainter(trajs4[2], info4)
