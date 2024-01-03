@@ -19,6 +19,81 @@ class TrajInfo(object):
         self.max_points_num = max_points_num
         self.features_num = features_num
 
+    def __eq__(self, other):
+        if isinstance(other, TrajInfo):
+            return (
+                self.trajs_num == other.trajs_num
+                and np.allclose(self.each_points_num, other.each_points_num)
+                and self.max_points_num == other.max_points_num
+                and self.features_num == other.features_num
+            )
+        return False
+
+    @classmethod
+    def consruct(
+        cls,
+        trajs: np.ndarray,
+        type: str,
+        trajs_num: int = None,
+        each_points_num: Union[str, np.ndarray] = None,
+        max_points_num: int = None,
+        features_num: int = None,
+    ):
+        """
+        根据轨迹数据构造TrajInfo;
+        type: series_v, series_h, mixed_v, mixed_h, time_trajs, traj_times；
+        each_points_num: None, "equal", np.ndarray；
+        """
+        if "time" in type:
+            if type == "traj_times":
+                trajs = trajs.T
+            trajs_num = trajs.shape[1] if trajs_num is None else trajs_num
+            max_points_num = (
+                trajs.shape[0] if max_points_num is None else max_points_num
+            )
+            features_num = trajs.shape[2] if features_num is None else features_num
+            if each_points_num == "equal":
+                each_points_num = np.full(trajs_num, max_points_num)
+            elif each_points_num is not None:
+                each_points_num = np.array(each_points_num)
+            else:
+                each_points_num = np.zeros(trajs_num)
+                for i in range(trajs_num):
+                    each_points_num[i] = len(
+                        np.delete(trajs[:, i, 0], np.where(np.isnan(trajs[:, i, 0])))
+                    )
+        else:
+            if "v" in type:
+                trajs = trajs.T
+            shape = trajs.shape
+            features_num = shape[0] if features_num is None else features_num
+            trajs_lenth = shape[1]
+            if isinstance(each_points_num, np.ndarray):
+                trajs_num = len(each_points_num) if trajs_num is None else trajs_num
+                max_points_num = (
+                    np.max(each_points_num)
+                    if max_points_num is None
+                    else max_points_num
+                )
+            else:
+                if max_points_num is None:
+                    assert trajs_num is not None, "trajs_num must be given"
+                    max_points_num = trajs_lenth // trajs_num
+                elif trajs_num is None:
+                    assert max_points_num is not None, "max_points_num must be given"
+                    trajs_num = trajs_lenth // max_points_num
+                if each_points_num == "equal":
+                    each_points_num = np.full(trajs_num, max_points_num)
+                else:
+                    each_points_num = np.zeros(trajs_num)
+                    for i in range(trajs_num):
+                        traj = TrajTools.get_traj_from_mixed_trajs(trajs, i, trajs_num)
+                        each_points_num[i] = int(
+                            max_points_num
+                            - len(np.where(np.any(np.isnan(traj), axis=0))[0])
+                        )
+        return cls(trajs_num, each_points_num, max_points_num, features_num)
+
 
 class TrajTools(object):
     @staticmethod
@@ -295,6 +370,56 @@ class TrajTools(object):
                     axis=axis,
                 )
         return trajs_new, trajs_info_new
+
+    @staticmethod
+    def get_sub_mixed_trajs(
+        trajs_mixed: np.ndarray,
+        trajs_info: TrajInfo,
+        points: tuple,
+        trajs: tuple,
+        grow_type: str = "h",
+    ):
+        """
+        从按时间拼接的轨迹数据中获取某个子集;
+        points: (start_point, end_point)；
+        trajs: indexes，最后生成的矩阵的轨迹顺序将按此中顺序；
+        """
+        start_point = points[0]
+        end_point = points[1]
+        each_points_num = trajs_info.each_points_num[list(trajs)]
+        max_points_num = np.max(each_points_num)
+        if end_point >= max_points_num:
+            end = int(max_points_num - 1)
+            print(
+                f"end_point {end_point} is larger than max_points_num {end} of all the selected trajectories {trajs}, so it will be set to {end}"
+            )
+            end_point = end
+
+        # 新信息
+        each_points_num -= start_point
+        max_points_num = int(end_point - start_point + 1)
+        features_num = trajs_info.features_num
+        # 删除点数为0的轨迹
+        slices = each_points_num > 0
+        trajs = np.array(trajs)[slices].tolist()
+        each_points_num = each_points_num[slices]
+        trajs_num = len(trajs)
+
+        if grow_type != "h":
+            trajs_mixed = trajs_mixed.T
+        # 初始子矩阵
+        sub_trajs = np.zeros((features_num, int(trajs_num * max_points_num)))
+        start_bias = start_point * trajs_info.trajs_num
+        end_bias = end_point * trajs_info.trajs_num + 1
+        for i, index in enumerate(trajs):
+            base = int(index + start_bias)
+            end = index + end_bias
+            sub_trajs[:, i::trajs_num] = trajs_mixed[
+                :, base : end : trajs_info.trajs_num
+            ]
+        return sub_trajs, TrajInfo(
+            trajs_num, each_points_num, max_points_num, features_num
+        )
 
     @staticmethod
     def get_grow_type(trajs: np.ndarray):

@@ -1,8 +1,9 @@
-from robot_tools.trajer import TrajTools
+from robot_tools.trajer import TrajTools, TrajInfo
 import numpy as np
 
 
 if __name__ == "__main__":
+    PAINTER_TEST = False
     # 二维测试
     test_data = {
         "0": {"observation": [1, 2, 3], "action": [4, 5, 6], "num": 3},
@@ -142,33 +143,51 @@ if __name__ == "__main__":
         TrajTools.delete_nan(traj_normed3), TrajTools.delete_nan(traj_normed4.T)
     ), f"\n{traj_normed3}\n{traj_normed4.T}"
 
-    # TrajsPainter test
-    from robot_tools.trajer import TrajsPainter
+    # info construct test
+    print("\ninfo construct test")
+    print(trajs3)
+    info = TrajInfo.consruct(trajs3, "time_trajs")
+    assert info == info3
+    info = TrajInfo.consruct(trajs4[2], "mixed_trajs", trajs_num=2)
+    print(trajs4[2])
+    assert info == info4
 
-    print("\nTrajsPainter test")
-    obs_painter = TrajsPainter(trajs4[2], info4)
-    print(obs_painter._trajs)
+    # get_sub_mixed_trajs test
+    print("\nget_sub_mixed_trajs test")
+    print(trajs4[2])
+    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(trajs4[2], info4, (0, 1), (0, 1))
+    print(sub_mixed_trajs)
+    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(trajs4[2], info4, (1, 3), (0, 1))
+    print(sub_mixed_trajs)
 
-    traj_draw = (0,)
-    # get axs to draw more on the same figures
-    obs_painter.features_self_labels = ("experimental group",) * info4.features_num
-    axs = obs_painter.plot_features_with_t(
-        (0, 3), traj_draw, (0, 1, 2), return_axs=True
-    )
-    obs_painter.update_trajs(trajs5[2], info5)
-    trajs, info = obs_painter.get_trajs_and_info()
-    assert info.features_num == info4.features_num
-    obs_painter.features_lines = ("r",) * info.features_num
-    obs_painter.features_self_labels = ("control group",) * info.features_num
-    # 可以指定不同的特征重复画
-    obs_painter.set_pause(1)
-    obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axs=axs)
+    if PAINTER_TEST:
+        # TrajsPainter test
+        from robot_tools.trajer import TrajsPainter
 
-    # plot_2D_features test
-    print(obs_painter.get_trajs_and_info()[0])
-    axs = obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), return_axs=True)
-    obs_painter.update_trajs(trajs4[2], info4)
-    obs_painter.trajs_labels = r"$trajectories_2$"
-    obs_painter.trajs_lines = "->r"
-    obs_painter.trajs_markersize = 3
-    obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), given_axs=axs)
+        print("\nTrajsPainter test")
+        obs_painter = TrajsPainter(trajs4[2], info4)
+        print(obs_painter._trajs)
+
+        traj_draw = (0,)
+        # get axs to draw more on the same figures
+        obs_painter.features_self_labels = ("experimental group",) * info4.features_num
+        axs = obs_painter.plot_features_with_t(
+            (0, 3), traj_draw, (0, 1, 2), return_axs=True
+        )
+        obs_painter.update_trajs(trajs5[2], info5)
+        trajs, info = obs_painter.get_trajs_and_info()
+        assert info.features_num == info4.features_num
+        obs_painter.features_lines = ("r",) * info.features_num
+        obs_painter.features_self_labels = ("control group",) * info.features_num
+        # 可以指定不同的特征重复画
+        # obs_painter.set_pause(1)
+        obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axs=axs)
+
+        # plot_2D_features test
+        print(obs_painter.get_trajs_and_info()[0])
+        axs = obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), return_axs=True)
+        obs_painter.update_trajs(trajs4[2], info4)
+        obs_painter.trajs_labels = r"$trajectories_2$"
+        obs_painter.trajs_lines = "->r"
+        obs_painter.trajs_markersize = 3
+        obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), given_axs=axs)
