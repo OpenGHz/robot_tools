@@ -3,7 +3,7 @@ import numpy as np
 
 
 if __name__ == "__main__":
-    PAINTER_TEST = False
+    PAINTER_TEST = True
     # 二维测试
     test_data = {
         "0": {"observation": [1, 2, 3], "action": [4, 5, 6], "num": 3},
@@ -56,12 +56,17 @@ if __name__ == "__main__":
     print(trajs4[0])
 
     # delete test
-    X = TrajTools.delete_element_by_traj(trajs4[1], info4.each_points_num, 0)
-    Y = TrajTools.delete_element_by_traj(trajs4[1], info4.each_points_num, -1)
+    X, X_info = TrajTools.delete_element_by_traj(trajs4[1], 0, info4)
+    Y, Y_info = TrajTools.delete_element_by_traj(trajs4[1], -1, info4)
     print("\ndelete_element_by_traj test")
     print(trajs4[1])
     print(X)
     print(Y)
+    assert X_info.max_points_num == info4.max_points_num - 1
+    assert Y_info.max_points_num == info4.max_points_num - 1
+    assert X_info.trajs_num == info4.trajs_num - 1
+    assert Y_info.trajs_num == info4.trajs_num - 1
+
     A, A_info = TrajTools.delete_mixed_at_traj(trajs4[2], 0, info4)
     B, B_info = TrajTools.delete_mixed_at_traj(trajs4[2], -1, info4)
     print("\ndelete_mixed_at_traj test")
@@ -155,10 +160,18 @@ if __name__ == "__main__":
     # get_sub_mixed_trajs test
     print("\nget_sub_mixed_trajs test")
     print(trajs4[2])
-    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(trajs4[2], info4, (0, 1), (0, 1))
+    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(
+        trajs4[2], info4, (0, 1), (0, 1)
+    )
     print(sub_mixed_trajs)
-    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(trajs4[2], info4, (1, 3), (0, 1))
+    sub_mixed_trajs, sub_info = TrajTools.get_sub_mixed_trajs(
+        trajs4[2], info4, (1, 3), (0, 1)
+    )
     print(sub_mixed_trajs)
+
+    # get_trajs test
+    print("\nget_trajs test")
+    print(sub_info.get_trajs())
 
     if PAINTER_TEST:
         # TrajsPainter test
@@ -168,18 +181,19 @@ if __name__ == "__main__":
         obs_painter = TrajsPainter(trajs4[2], info4)
         print(obs_painter._trajs)
 
-        traj_draw = (0,)
+        traj_draw = (1,)
         # get axs to draw more on the same figures
-        obs_painter.features_self_labels = ("experimental group",) * info4.features_num
+        obs_painter.features_self_labels = "experimental group"
         axs = obs_painter.plot_features_with_t(
             (0, 3), traj_draw, (0, 1, 2), return_axs=True
         )
         obs_painter.update_trajs(trajs5[2], info5)
         trajs, info = obs_painter.get_trajs_and_info()
         assert info.features_num == info4.features_num
-        obs_painter.features_lines = ("r",) * info.features_num
-        obs_painter.features_self_labels = ("control group",) * info.features_num
-        # 可以指定不同的特征重复画
+        print(obs_painter._trajs)
+        obs_painter.features_lines = "r"
+        obs_painter.features_self_labels = "control group"
+        # 可以指定不同的特征重复画(这里没有绘制第二个特征)
         # obs_painter.set_pause(1)
         obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axs=axs)
 
