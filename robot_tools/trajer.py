@@ -495,6 +495,48 @@ class TrajTools(object):
             trajs_num, each_points_num, max_points_num, features_num
         )
 
+    @classmethod
+    def get_sub_series_trajs(
+        cls,
+        trajs_series: np.ndarray,
+        trajs_info: TrajInfo,
+        points: tuple,
+        trajs: tuple,
+        grow_type: str = "h",
+    ):
+        """
+        从按轨迹串行拼接的轨迹数据中获取某个子集;
+        points: (start_point, end_point)；不包括end_point；
+        trajs: indexes，最后生成的矩阵的轨迹顺序将按此中顺序；
+        """
+        new_each_points_num = trajs_info.each_points_num[list(trajs)]
+        new_each_points_num[new_each_points_num > points[1]] = points[1]
+        new_each_points_num -= points[0]
+        trajs = np.array(trajs)[new_each_points_num > 0].tolist()
+        new_each_points_num = new_each_points_num[new_each_points_num > 0]
+        new_series_trajs = np.zeros(
+            (trajs_info.features_num, int(np.sum(new_each_points_num)))
+        )
+        # 获取全部轨迹
+        base = 0
+        each = trajs_info.each_points_num
+        for index in trajs:
+            base = int(np.sum(each[:index]))
+            end = int(base + each[index])
+            new_series_trajs[:, base:end] = TrajTools.get_traj_from_series_trajs(
+                trajs_series,
+                each,
+                index,
+                trajs_info.trajs_num,
+                grow_type=grow_type,
+            )[:, points[0] : points[1]]
+        return new_series_trajs, TrajInfo(
+            len(trajs),
+            new_each_points_num,
+            np.max(new_each_points_num),
+            trajs_info.features_num,
+        )
+
     @staticmethod
     def get_grow_type(trajs: np.ndarray):
         """检查轨迹数据是按v还是h拼接的（要求特征数<轨迹点数）"""

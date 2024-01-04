@@ -3,7 +3,7 @@ import numpy as np
 
 
 if __name__ == "__main__":
-    PAINTER_TEST = True
+    PAINTER_TEST = False
     # 二维测试
     test_data = {
         "0": {"observation": [1, 2, 3], "action": [4, 5, 6], "num": 3},
@@ -168,6 +168,16 @@ if __name__ == "__main__":
         trajs4[2], info4, (1, 3), (0, 1)
     )
     print(sub_mixed_trajs)
+
+    # get_sub_series_trajs test
+    print("\nget_sub_series_trajs test")
+    print(trajs4[1])
+    sub_series_trajs, sub_info = TrajTools.get_sub_series_trajs(
+        trajs4[1], info4, (0, 2), (0, 1)
+    )
+    print(sub_series_trajs)
+    print(sub_info.each_points_num)
+    print(sub_info.max_points_num)
 
     # get_trajs test
     print("\nget_trajs test")
