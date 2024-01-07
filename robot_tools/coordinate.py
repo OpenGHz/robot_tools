@@ -38,30 +38,55 @@ class CoordinateTools(object):
         return trans_tf
 
     @classmethod
-    def to_robot_coordinate(
-        cls, target_in_world: tuple, robot_in_world: tuple
-    ) -> tuple:
-        """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
-        target_in_world = cls.to_transform_matrix(*target_in_world)
-        robot_in_world = cls.to_transform_matrix(*robot_in_world)
-        target_in_robot = np.matmul(np.linalg.inv(robot_in_world), target_in_world)
+    def tf_compute_series(
+        cls, source_in_base: tuple, target_in_source: tuple
+    ) -> np.ndarray:
+        """计算两个串联关系位姿之间的变换矩阵"""
+        source_in_base = cls.to_transform_matrix(*source_in_base)
+        target_in_source = cls.to_transform_matrix(*target_in_source)
+        target_in_base = np.matmul(source_in_base, target_in_source)
         t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
-            target_in_robot
+            target_in_base
         )
         return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
+    @classmethod
+    def tf_compute_parallel(
+        cls, source_in_base: tuple, target_in_base: tuple
+    ) -> np.ndarray:
+        """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
+        target_in_base = cls.to_transform_matrix(*target_in_base)
+        source_in_base = cls.to_transform_matrix(*source_in_base)
+        target_in_source = np.matmul(np.linalg.inv(source_in_base), target_in_base)
+        t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
+            target_in_source
+        )
+        return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
+    @classmethod
+    def tf_chain_compute(cls, *args) -> np.ndarray:
+        """根据依次串联相接的tf链计算尾部相对于首部的位姿"""
+        if len(args) == 1:
+            return args[0]
+        elif len(args) == 2:
+            return cls.tf_compute_series(args[0], args[1])
+        else:
+            # 递归进行矩阵乘法
+            return cls.tf_compute_series(args[0], cls.tf_chain_compute(*args[1:]))
 
     @classmethod
     def to_world_coordinate(
         cls, target_in_robot: tuple, robot_in_world: tuple
     ) -> tuple:
         """目标在机器人坐标系下的位姿转换为在世界坐标系下的位姿"""
-        target_in_robot = cls.to_transform_matrix(*target_in_robot)
-        robot_in_world = cls.to_transform_matrix(*robot_in_world)
-        target_in_world = np.matmul(robot_in_world, target_in_robot)
-        t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
-            target_in_world
-        )
-        return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+        return cls.tf_compute_series(robot_in_world, target_in_robot)
+
+    @classmethod
+    def to_robot_coordinate(
+        cls, target_in_world: tuple, robot_in_world: tuple
+    ) -> tuple:
+        """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
+        return cls.tf_compute_parallel(robot_in_world, target_in_world)
 
     @classmethod
     def to_target_orientation(
@@ -71,7 +96,9 @@ class CoordinateTools(object):
         rela_orientation = cls.to_rotation_matrix(rela_orientation)
         current_orientation = cls.to_rotation_matrix(current_orientation)
         target_in_base = np.matmul(current_orientation, rela_orientation)
-        return np.array(transformations.euler_from_matrix(target_in_base), dtype=np.float64)
+        return np.array(
+            transformations.euler_from_matrix(target_in_base), dtype=np.float64
+        )
 
     @classmethod
     def to_target_position(

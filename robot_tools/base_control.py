@@ -33,7 +33,9 @@ class BaseControlTools(object):
         else:
             raw_velocity_norm = abs(posi_or_rota)
         target_linear_velocity_norm = kp * raw_velocity_norm
-        if target_linear_velocity_norm > limits[1]:
+        if target_linear_velocity_norm == 0:
+            target_velocity = posi_or_rota
+        elif target_linear_velocity_norm > limits[1]:
             target_velocity = limits[1] / raw_velocity_norm * posi_or_rota
         elif target_linear_velocity_norm < dead_zone:
             target_velocity *= 0.0
@@ -112,6 +114,7 @@ class BaseControlTools(object):
         new_target=1,
         avoid_321=False,
         same_ignore=False,
+        avoid_swing=False,
     ) -> tuple:
         """获得三阶段控制法的当前阶段及其相关偏差量"""
         position_error, rotation_error = cls.coor.get_pose_error_in_axis(
@@ -159,6 +162,8 @@ class BaseControlTools(object):
                 elif direction_error_abs <= 0:  # 完全对齐后才开始绝对直线
                     return 2, position_distance
                 elif direction_error_abs <= direction_tolerance[1]:
+                    if avoid_swing:
+                        direction_error = 0  # 不再修正方向，避免来回摆动
                     if position_distance < 0:
                         direction_error *= -1  # 倒车修正
                     return 1.5, (position_distance, direction_error)  # 1.5的bias是个tuple
@@ -186,6 +191,7 @@ class BaseControlTools(object):
         new_target=1,
         avoid_321=False,
         same_ignore=False,
+        avoid_swing=False,
     ) -> tuple:
         """改进三阶段底盘位置-速度控制法(增加单轴移动+旋转叠加阶段)"""
         target_linear_velocity = np.zeros(3, dtype=np.float64)
@@ -200,6 +206,7 @@ class BaseControlTools(object):
             new_target=new_target,
             avoid_321=avoid_321,
             same_ignore=same_ignore,
+            avoid_swing=avoid_swing,
         )
         if self._TEST_:
             print("stage:", stage)
@@ -297,6 +304,16 @@ class BaseControl(object):
         result = self.move()
         return result
 
+    def shift_pose(self, axis: int, target: float) -> bool:
+        """在机器人当前位姿的基础上，沿指定轴移动指定距离"""
+        position, rotation = self.get_current_world_pose()
+        if axis < 3:
+            position[axis] += target
+        else:
+            rotation[axis-3] += target
+        result = self.move_to(position, rotation)
+        return result
+
     def set_target_pose(
         self, position: np.ndarray, rotation: np.ndarray, ref: str = "world"
     ) -> None:
@@ -392,6 +409,9 @@ class BaseControl(object):
         self._avoid_321 = avoid
         self._same_ignore = same_ignore
 
+    def avoid_swing(self, avoid: bool = True):
+        self._avoid_swing = avoid
+
     def set_move_kp(self, tarns: float, rotat: float):
         """设置机器人运动控制的比例增益"""
         self._move_kp = (tarns, rotat)
@@ -457,6 +477,7 @@ class BaseControl(object):
             new_target=self._new_target,
             avoid_321=self._avoid_321,
             same_ignore=self._same_ignore,
+            avoid_swing=self._avoid_swing,
         )
         if self._TEST_:
             print("target_rotation:", self.get_target_pose()[1])

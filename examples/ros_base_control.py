@@ -60,6 +60,7 @@ base_pose_control_flag = False
 last_target_pose = PoseStamped()
 last_tolerance = {}
 
+
 def current_pose_sub(msg: Pose):
     pos = [msg.position.x, msg.position.y, msg.position.z]
     ori = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
@@ -131,12 +132,14 @@ while not rospy.is_shutdown():
     # base pose control
     if base_pose_control_flag:
         rospy.set_param("/airbot/base/control_finished", False)
-        tolerance = rospy.get_param("/airbot/base/tolerance",{})
+        tolerance = rospy.get_param("/airbot/base/tolerance", {})
         if tolerance != last_tolerance:
             last_tolerance = tolerance
-            base_control.set_wait_tolerance(tolerance["position"], tolerance["rotation"], 60, 200)
+            base_control.set_wait_tolerance(
+                tolerance["position"], tolerance["rotation"], 60, 200
+            )
             base_control.set_direction_tolerance(tolerance["direction"])
-
+        base_control.avoid_swing(rospy.get_param("/airbot/base/avoid_swing", False))
         cmd = base_control.get_velocity_cmd(ignore_stop=True)
         vel_msg.linear.x = cmd[0][0]
         vel_msg.linear.y = cmd[0][1]
