@@ -5,7 +5,7 @@ setup(
     version='1.0',
     packages=find_packages(),
     package_dir={"": "."},
-    install_requires=['numpy','scipy','matplotlib'],
+    install_requires=['numpy>=1.19.5','scipy','matplotlib'],
     author='GHz',
     author_email='ghz23@mails.tsinghua.edu.cn',
     description='Robot Tools.',
