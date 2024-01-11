@@ -32,8 +32,8 @@ class TrajInfo(object):
             each_points_num = np.full(trajs_num, max_points_num)
         self.each_points_num = each_points_num
         if max_points_num is None:
-            max_points_num = int(np.max(each_points_num))
-        self.max_points_num = max_points_num
+            max_points_num = np.max(each_points_num)
+        self.max_points_num = int(max_points_num)
         self.features_num = features_num
         self._trajs = None
         self._type = None
@@ -470,6 +470,7 @@ class TrajTools(object):
             end_point = max_points_num
 
         # 新信息
+        each_points_num[each_points_num > end_point] = end_point
         each_points_num -= start_point
         max_points_num = int(end_point - start_point)
         features_num = trajs_info.features_num
@@ -506,7 +507,7 @@ class TrajTools(object):
     ):
         """
         从按轨迹串行拼接的轨迹数据中获取某个子集;
-        points: (start_point, end_point)；不包括end_point；
+        points: (start_point, end_point)；不包括end_point；也可以嵌套，如((0, 1), (0, 1))，为相应轨迹指定不同的时间段；
         trajs: indexes，最后生成的矩阵的轨迹顺序将按此中顺序；
         """
         new_each_points_num = trajs_info.each_points_num[list(trajs)]
@@ -520,7 +521,13 @@ class TrajTools(object):
         # 获取全部轨迹
         base = 0
         each = trajs_info.each_points_num
+        cnt = 0
+        points_flag = True if isinstance(points[0], int) else False
         for index in trajs:
+            if points_flag:
+                points_ = points
+            else:
+                points_ = points[cnt]
             base = int(np.sum(each[:index]))
             end = int(base + each[index])
             new_series_trajs[:, base:end] = TrajTools.get_traj_from_series_trajs(
@@ -529,7 +536,8 @@ class TrajTools(object):
                 index,
                 trajs_info.trajs_num,
                 grow_type=grow_type,
-            )[:, points[0] : points[1]]
+            )[:, points_[0] : points_[1]]
+            cnt += 1
         return new_series_trajs, TrajInfo(
             len(trajs),
             new_each_points_num,
