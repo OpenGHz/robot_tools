@@ -4,11 +4,55 @@ from mpl_toolkits.mplot3d import Axes3D  # 需要import来支持3D，尽管不�
 
 
 class Painter2D(object):
+    """points (np.ndarray): Array of 2D points with shape (n, 2)."""
 
     @staticmethod
     def reverse_points(points: np.ndarray) -> np.ndarray:
         """Reverse the order of points."""
         return points[::-1]
+
+    @staticmethod
+    def mirror_points(points: np.ndarray, axis: int = 2, base: int = 0) -> np.ndarray:
+        """
+        Mirror the points on target aixis.
+        axis:
+            0: 关于y轴镜像
+            1: 关于x轴镜像
+            2: 中心镜像
+        """
+        if axis == 2:
+            return np.flip(points, axis=1)
+        else:
+            x = points[:, 0]
+            y = points[:, 1]
+            if axis == 0:
+                x = -(x - base) + base
+            elif axis == 1:
+                y = -(y - base) + base
+            else:
+                raise ValueError("Invalid axis value.")
+            return np.column_stack((x, y))
+
+    @staticmethod
+    def rotate_points(points: np.ndarray, angle: float) -> np.ndarray:
+        """
+        Rotate the points by target angle.
+
+        Parameters:
+        - points (np.ndarray): Array of 2D points with shape (n, 2).
+        - angle (float): Rotation angle in radians.
+
+        Returns:
+        - np.ndarray: Rotated points.
+        """
+        if points.shape[1] != 2:
+            raise ValueError("Input array must have shape (n, 2) for 2D points.")
+
+        rotation_matrix = np.array(
+            [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+        )
+        rotated_points = np.dot(points, rotation_matrix.T)
+        return rotated_points
 
     @staticmethod
     def plot_xy(x, y, title=None) -> None:
@@ -26,6 +70,17 @@ class Painter2D(object):
         points = np.array(points)
         fig, ax = plt.subplots()
         plt.plot(points[:, 0], points[:, 1])
+        ax.set_aspect("equal")
+        if title is not None:
+            plt.title(title)
+        plt.show()
+        fig.clear()
+
+    @staticmethod
+    def scatter_points(points, title: str = None) -> None:
+        points = np.array(points)
+        fig, ax = plt.subplots()
+        plt.scatter(points[:, 0], points[:, 1])
         ax.set_aspect("equal")
         if title is not None:
             plt.title(title)
