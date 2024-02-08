@@ -4,8 +4,14 @@ from mpl_toolkits.mplot3d import Axes3D  # 需要import来支持3D，尽管不�
 
 
 class Painter2D(object):
+
     @staticmethod
-    def plot_xy(x: np.ndarray, y: np.ndarray, title=None) -> None:
+    def reverse_points(points: np.ndarray) -> np.ndarray:
+        """Reverse the order of points."""
+        return points[::-1]
+
+    @staticmethod
+    def plot_xy(x, y, title=None) -> None:
         fig, ax = plt.subplots()
         plt.plot(x, y)
         ax.set_aspect("equal")
@@ -15,7 +21,8 @@ class Painter2D(object):
         fig.clear()
 
     @staticmethod
-    def plot_points(points, title=None) -> None:
+    def plot_points(points, title: str = None) -> None:
+        """points: list of tuples/lists or np.ndarray, two columns correspond to x and y"""
         points = np.array(points)
         fig, ax = plt.subplots()
         plt.plot(points[:, 0], points[:, 1])
@@ -36,11 +43,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -54,11 +57,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -72,11 +71,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @classmethod
@@ -94,11 +89,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -117,11 +108,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -139,11 +126,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -161,11 +144,7 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
     @staticmethod
@@ -183,34 +162,51 @@ class Painter2D(object):
         # plot these points
         points = np.array(points)
         if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            plt.show()
-            fig.clear()
+            Painter2D.plot_points(points)
         return points
 
+    @staticmethod
     def get_spiral_points(
-        a, b, num_points=1000, turns=2, plot=True, start_point=(0, 0)
-    ):
+        a: float,
+        b: float,
+        num_points: int,
+        turns: int,
+        plot: bool = False,
+        start_point: tuple = (0, 0),
+        end_phase: float = None,
+    ) -> np.ndarray:
         """
         生成螺旋线轨迹的函数（由内向外展开）
 
         参数：
-        - a: 螺旋线的扭曲参数
-        - b: 螺旋线的展开参数(b=0时为圆形螺旋线, b越大螺旋线越松散)
+        - a: 螺旋线的扭曲参数，决定了螺旋线的最小半径
+        - b: 螺旋线的展开参数(b=0时为圆形螺旋线, b越大螺旋线展开越快，越松散)
         - num_points: 生成轨迹的点数
         - turns: 螺旋线的圈数
         - plot: 是否绘制螺旋线图形，默认为True
         - start_point: 螺旋线的起始点，默认为原点(0, 0)
+        - end_phase: 螺旋线最后一轮展开的终止相位，默认为None即展开到2π
 
-        返回：
-        - x: 生成的螺旋线 x 坐标数组
-        - y: 生成的螺旋线 y 坐标数组
+        返回：轨迹点序列
         """
         x_bias = -start_point[0] + a
         y_bias = start_point[1]
-        t = np.linspace(0, 2 * np.pi * turns, num_points)
+        if end_phase is None:
+            t = np.linspace(0, 2 * np.pi * turns, num_points)
+        elif turns == 1:
+            t = np.linspace(0, end_phase, num_points)
+        else:
+            # 按t长度均匀分配轨迹点数
+            t_1_lenth = (turns - 1) * 2 * np.pi
+            t_2_lenth = end_phase
+            total_lenth = t_1_lenth + t_2_lenth
+            t1_points_num = int(num_points * t_1_lenth / total_lenth)
+            t2_points_num = num_points - t1_points_num
+            t1_end_phase = 2 * np.pi * (turns - 1)
+            t2_end_phase = t1_end_phase + end_phase
+            t_1 = np.linspace(0, t1_end_phase, t1_points_num)
+            t_2 = np.linspace(t1_end_phase, t2_end_phase, t2_points_num)
+            t = np.concatenate((t_1, t_2))
         x = (a + b * t) * np.cos(t) - x_bias
         y = (a + b * t) * np.sin(t) + y_bias
 
@@ -223,7 +219,7 @@ class Painter2D(object):
             plt.grid(True)
             plt.show()
 
-        return x, y
+        return np.array([x, y]).T
 
 
 class Painter3D(object):
@@ -256,7 +252,7 @@ if __name__ == "__main__":
         # Painter2D.get_star_points((0, 0), 1, 100, plot=True)
         # Painter2D.get_cross_points((0, 0), 1, 100, plot=True)
         # Painter2D.get_pentagram_points((0, 0), 1, 100, plot=True)
-        Painter2D.get_spiral_points(0.1, 0.1, num_points=1000, turns=2, plot=True)
+        Painter2D.get_spiral_points(0.1, 0.1, num_points=100, turns=2, plot=True)
     else:
         # test for 3D painter
         points = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
