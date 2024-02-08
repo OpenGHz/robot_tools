@@ -174,6 +174,7 @@ class Painter2D(object):
         plot: bool = False,
         start_point: tuple = (0, 0),
         end_phase: float = None,
+        points_allocate_mode: str = "time",
     ) -> np.ndarray:
         """
         生成螺旋线轨迹的函数（由内向外展开）
@@ -186,6 +187,8 @@ class Painter2D(object):
         - plot: 是否绘制螺旋线图形，默认为True
         - start_point: 螺旋线的起始点，默认为原点(0, 0)
         - end_phase: 螺旋线最后一轮展开的终止相位，默认为None即展开到2π
+        - points_allocate_mode: end_phase不为None时的轨迹点分配模式，
+            time表示按t长度均匀分配轨迹点数，turn按圈数分配
 
         返回：轨迹点序列
         """
@@ -196,17 +199,26 @@ class Painter2D(object):
         elif turns == 1:
             t = np.linspace(0, end_phase, num_points)
         else:
-            # 按t长度均匀分配轨迹点数
-            t_1_lenth = (turns - 1) * 2 * np.pi
-            t_2_lenth = end_phase
-            total_lenth = t_1_lenth + t_2_lenth
-            t1_points_num = int(num_points * t_1_lenth / total_lenth)
-            t2_points_num = num_points - t1_points_num
             t1_end_phase = 2 * np.pi * (turns - 1)
             t2_end_phase = t1_end_phase + end_phase
-            t_1 = np.linspace(0, t1_end_phase, t1_points_num)
-            t_2 = np.linspace(t1_end_phase, t2_end_phase, t2_points_num)
-            t = np.concatenate((t_1, t_2))
+            # 按t长度均匀分配轨迹点数
+            if points_allocate_mode == "time":
+                t_1_lenth = (turns - 1) * 2 * np.pi
+                t_2_lenth = end_phase
+                total_lenth = t_1_lenth + t_2_lenth
+                t1_points_num = int(num_points * t_1_lenth / total_lenth)
+                t2_points_num = num_points - t1_points_num
+                t_1 = np.linspace(0, t1_end_phase, t1_points_num)
+                t_2 = np.linspace(t1_end_phase, t2_end_phase, t2_points_num)
+                t = np.concatenate((t_1, t_2))
+            # 按圈数分配（最后一圈的相位越大，最后一圈的点越稀疏）
+            else:
+                t_1_points_num = int(num_points * (turns - 1) / turns)
+                t_2_points_num = num_points - t_1_points_num
+                t_1 = np.linspace(0, t1_end_phase, t_1_points_num)
+                t_2 = np.linspace(t1_end_phase, t2_end_phase, t_2_points_num)
+                t = np.concatenate((t_1, t_2))
+
         x = (a + b * t) * np.cos(t) - x_bias
         y = (a + b * t) * np.sin(t) + y_bias
 
