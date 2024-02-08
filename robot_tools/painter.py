@@ -1,20 +1,29 @@
 from matplotlib import pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D  # 需要import来支持3D，尽管不直接使用
 
 
 class Painter2D(object):
     @staticmethod
-    def plot_points(points, plot=True, title=None) -> None:
+    def plot_xy(x: np.ndarray, y: np.ndarray, title=None) -> None:
+        fig, ax = plt.subplots()
+        plt.plot(x, y)
+        ax.set_aspect("equal")
+        if title is not None:
+            plt.title(title)
+        plt.show()
+        fig.clear()
+
+    @staticmethod
+    def plot_points(points, title=None) -> None:
         points = np.array(points)
-        if plot:
-            fig, ax = plt.subplots()
-            plt.plot(points[:, 0], points[:, 1])
-            ax.set_aspect("equal")
-            if title is not None:
-                plt.title(title)
-            plt.show()
-            fig.clear()
+        fig, ax = plt.subplots()
+        plt.plot(points[:, 0], points[:, 1])
+        ax.set_aspect("equal")
+        if title is not None:
+            plt.title(title)
+        plt.show()
+        fig.clear()
 
     @staticmethod
     def get_circle_points(center, radius, num_points, plot=False) -> np.ndarray:
@@ -181,6 +190,41 @@ class Painter2D(object):
             fig.clear()
         return points
 
+    def get_spiral_points(
+        a, b, num_points=1000, turns=2, plot=True, start_point=(0, 0)
+    ):
+        """
+        生成螺旋线轨迹的函数（由内向外展开）
+
+        参数：
+        - a: 螺旋线的扭曲参数
+        - b: 螺旋线的展开参数(b=0时为圆形螺旋线, b越大螺旋线越松散)
+        - num_points: 生成轨迹的点数
+        - turns: 螺旋线的圈数
+        - plot: 是否绘制螺旋线图形，默认为True
+        - start_point: 螺旋线的起始点，默认为原点(0, 0)
+
+        返回：
+        - x: 生成的螺旋线 x 坐标数组
+        - y: 生成的螺旋线 y 坐标数组
+        """
+        x_bias = -start_point[0] + a
+        y_bias = start_point[1]
+        t = np.linspace(0, 2 * np.pi * turns, num_points)
+        x = (a + b * t) * np.cos(t) - x_bias
+        y = (a + b * t) * np.sin(t) + y_bias
+
+        if plot:
+            plt.plot(x, y, label=f"Spiral (a={a}, b={b})")
+            plt.title("Spiral Trajectory")
+            plt.xlabel("X-axis")
+            plt.ylabel("Y-axis")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+
+        return x, y
+
 
 class Painter3D(object):
     def plot_points(points, plot=True, title=None, connect=False) -> None:
@@ -200,18 +244,19 @@ class Painter3D(object):
 
 
 if __name__ == "__main__":
-    TEST = "3D"
+    TEST = "2D"
     if TEST == "2D":
         # test for 2D painter
-        Painter2D.get_circle_points((0, 0), 1, 100, plot=True)
-        Painter2D.get_ellipse_points((0, 0), 1, 2, 100, plot=True)
-        Painter2D.get_rectangle_points((0, 0), 1, 2, plot=True)
-        Painter2D.get_square_points((0, 0), 2, plot=True)
-        Painter2D.get_polygon_points((0, 0), 1, 5, plot=True)
-        Painter2D.get_heart_points((0, 0), 1, 100, plot=True)
-        Painter2D.get_star_points((0, 0), 1, 100, plot=True)
-        Painter2D.get_cross_points((0, 0), 1, 100, plot=True)
-        Painter2D.get_pentagram_points((0, 0), 1, 100, plot=True)
+        # Painter2D.get_circle_points((0, 0), 1, 100, plot=True)
+        # Painter2D.get_ellipse_points((0, 0), 1, 2, 100, plot=True)
+        # Painter2D.get_rectangle_points((0, 0), 1, 2, plot=True)
+        # Painter2D.get_square_points((0, 0), 2, plot=True)
+        # Painter2D.get_polygon_points((0, 0), 1, 5, plot=True)
+        # Painter2D.get_heart_points((0, 0), 1, 100, plot=True)
+        # Painter2D.get_star_points((0, 0), 1, 100, plot=True)
+        # Painter2D.get_cross_points((0, 0), 1, 100, plot=True)
+        # Painter2D.get_pentagram_points((0, 0), 1, 100, plot=True)
+        Painter2D.get_spiral_points(0.1, 0.1, num_points=1000, turns=2, plot=True)
     else:
         # test for 3D painter
         points = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
