@@ -56,6 +56,17 @@ class Painter2D(object):
 
     @staticmethod
     def plot_xy(x, y, title=None) -> None:
+        """
+        Plot x and y coordinates on a graph.
+
+        Args:
+            x (list): List of x coordinates.
+            y (list): List of y coordinates.
+            title (str, optional): Title of the graph. Defaults to None.
+
+        Returns:
+            None
+        """
         fig, ax = plt.subplots()
         plt.plot(x, y)
         ax.set_aspect("equal")
@@ -78,6 +89,16 @@ class Painter2D(object):
 
     @staticmethod
     def scatter_points(points, title: str = None) -> None:
+        """
+        Display a scatter plot of the given points.
+
+        Parameters:
+        - points: A list or array-like object containing the x and y coordinates of the points.
+        - title: Optional title for the plot.
+
+        Returns:
+            None
+        """
         points = np.array(points)
         fig, ax = plt.subplots()
         plt.scatter(points[:, 0], points[:, 1])
@@ -89,6 +110,18 @@ class Painter2D(object):
 
     @staticmethod
     def get_circle_points(center, radius, num_points, plot=False) -> np.ndarray:
+        """
+        Calculate the coordinates of points on a circle.
+
+        Args:
+            center (tuple): The coordinates of the center of the circle.
+            radius (float): The radius of the circle.
+            num_points (int): The number of points to be calculated.
+            plot (bool, optional): Whether to plot the points. Defaults to False.
+
+        Returns:
+            np.ndarray: An array of shape (num_points, 2) containing the coordinates of the points.
+        """
         points = []
         for i in range(num_points):
             theta = i * 2 * np.pi / num_points
@@ -103,6 +136,20 @@ class Painter2D(object):
 
     @staticmethod
     def get_ellipse_points(center, a, b, num_points, plot=False) -> np.ndarray:
+        """
+        Calculate the points on an ellipse given its center, major axis length (a), minor axis length (b),
+        and the number of points to be calculated.
+
+        Args:
+            center (tuple): The coordinates of the center of the ellipse.
+            a (float): The length of the major axis.
+            b (float): The length of the minor axis.
+            num_points (int): The number of points to be calculated on the ellipse.
+            plot (bool, optional): Whether to plot the points. Defaults to False.
+
+        Returns:
+            np.ndarray: An array of points on the ellipse.
+        """
         points = []
         for i in range(num_points):
             theta = i * 2 * np.pi / num_points
@@ -117,6 +164,18 @@ class Painter2D(object):
 
     @staticmethod
     def get_rectangle_points(center, width, height, plot=False) -> np.ndarray:
+        """
+        获取矩形的四个顶点坐标。
+
+        Args:
+            center (tuple): 矩形的中心点坐标。
+            width (float): 矩形的宽度。
+            height (float): 矩形的高度。
+            plot (bool, optional): 是否绘制这些点。默认为False。
+
+        Returns:
+            np.ndarray: 包含矩形四个顶点坐标的数组。
+        """
         points = []
         points.append((center[0] - width / 2, center[1] - height / 2))
         points.append((center[0] + width / 2, center[1] - height / 2))
@@ -186,6 +245,18 @@ class Painter2D(object):
 
     @staticmethod
     def get_cross_points(center, radius, num_points, plot=False) -> np.ndarray:
+        """
+        Calculate the coordinates of cross points on a circle centered at 'center' with radius 'radius'.
+        
+        Args:
+            center (tuple): The coordinates of the center of the circle.
+            radius (float): The radius of the circle.
+            num_points (int): The number of cross points to calculate.
+            plot (bool, optional): Whether to plot the points. Defaults to False.
+        
+        Returns:
+            np.ndarray: An array of shape (num_points, 2) containing the coordinates of the cross points.
+        """
         points = []
         for i in range(num_points):
             theta = i * 2 * np.pi / num_points
@@ -204,6 +275,18 @@ class Painter2D(object):
 
     @staticmethod
     def get_pentagram_points(center, radius, num_points, plot=False) -> np.ndarray:
+        """
+        Calculate the coordinates of the points that form a pentagram.
+
+        Args:
+            center (tuple): The coordinates of the center point.
+            radius (float): The radius of the pentagram.
+            num_points (int): The number of points that form the pentagram.
+            plot (bool, optional): Whether to plot the points. Defaults to False.
+
+        Returns:
+            np.ndarray: An array of shape (num_points, 2) containing the coordinates of the points.
+        """
         points = []
         for i in range(num_points):
             theta = i * 2 * np.pi / num_points
@@ -290,7 +373,20 @@ class Painter2D(object):
 
 
 class Painter3D(object):
+    @staticmethod
     def plot_points(points, plot=True, title=None, connect=False) -> None:
+        """
+        绘制三维点云图。
+
+        参数：
+        points: 三维点的数组。
+        plot: 是否绘制图形，默认为True。
+        title: 图形标题，默认为None。
+        connect: 是否连接点云，默认为False。
+
+        返回值：
+        无返回值。
+        """
         points = np.array(points)
         if plot:
             fig = plt.figure()
