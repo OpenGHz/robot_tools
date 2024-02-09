@@ -34,6 +34,13 @@ class Painter2D(object):
             return np.column_stack((x, y))
 
     @staticmethod
+    def translate_points(
+        points: np.ndarray, x_trans: float, y_trans: float
+    ) -> np.ndarray:
+        """Translate the points by target x and y offsets."""
+        return points + np.array([x_trans, y_trans])
+
+    @staticmethod
     def rotate_points(points: np.ndarray, angle: float) -> np.ndarray:
         """
         Rotate the points by target angle.
@@ -247,13 +254,13 @@ class Painter2D(object):
     def get_cross_points(center, radius, num_points, plot=False) -> np.ndarray:
         """
         Calculate the coordinates of cross points on a circle centered at 'center' with radius 'radius'.
-        
+
         Args:
             center (tuple): The coordinates of the center of the circle.
             radius (float): The radius of the circle.
             num_points (int): The number of cross points to calculate.
             plot (bool, optional): Whether to plot the points. Defaults to False.
-        
+
         Returns:
             np.ndarray: An array of shape (num_points, 2) containing the coordinates of the cross points.
         """
