@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Dict, Union, Optional, Any, Set
+from typing import List, Tuple, Dict, Union, Optional, Any, Set, Iterable
 from . import recorder
 from matplotlib import pyplot as plt
 from copy import deepcopy
@@ -43,6 +43,8 @@ class TrajsRecorder(object):
         if self._trajs.get(traj_id) is None:
             self._trajs[traj_id] = deepcopy(self._traj)
             self.each_all_points_num[traj_id] = 0
+        if not isinstance(value, str) and isinstance(value, Iterable):
+            value = list(value)  # 转换为json支持的list格式
         self._trajs[traj_id][feature].append(value)
         if feature not in self._not_count_features:
             self.each_all_points_num[traj_id] += 1
