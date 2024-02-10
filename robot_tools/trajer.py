@@ -1,9 +1,55 @@
 import numpy as np
-from typing import List, Tuple, Dict, Union, Optional
+from typing import List, Tuple, Dict, Union, Optional, Any
 from . import recorder
 from matplotlib import pyplot as plt
 from copy import deepcopy
-from . import datar
+from datetime import datetime
+import atexit
+
+
+class TrajsRecorder(object):
+    def __init__(self, features: List[str], path: str = None):
+        self._features = features
+        self._traj = {feature: [] for feature in features}
+        self._trajs = {0: self._traj.copy()}
+        self._recorded = False
+        self._path = path
+
+    def feature_add(self, traj_id: int, feature: str, value: Any):
+        if traj_id not in self._trajs:  # 默认取keys
+            self._trajs[traj_id] = self._traj.copy()
+        self._trajs[traj_id][feature].append(value)
+
+    def record(
+        self, path: str = None, trajs: Optional[Dict[int, Dict[str, List[Any]]]] = None
+    ):
+        """手动存储轨迹数据"""
+        if path is None:
+            if self._path is None:
+                # 获取当前系统时间
+                current_time = datetime.now()
+                # 格式化时间为指定的格式，精确到毫秒
+                formatted_time = current_time.strftime("%Y-%m-%d-%H%M%S%f")[:-3]
+                path = f"trajs_{formatted_time}.json"
+            else:
+                path = self._path
+        if trajs is None:
+            trajs = self._trajs
+            # 保存非内部轨迹数据不修改内部记录状态
+            self._recorded = True
+
+        recorder.json_process(path, write=trajs)
+
+    def ensure(self):
+        """若未手动存储，则在程序退出时尝试自动存储轨迹数据"""
+        atexit.register(lambda: self.record() if not self._recorded else None)
+
+    @property
+    def trajs(self):
+        return self._trajs
+
+    def __getitem__(self, key):
+        return self._trajs[key]
 
 
 class TrajInfo(object):
