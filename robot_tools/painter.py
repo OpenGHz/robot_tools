@@ -76,10 +76,10 @@ class Painter2D(object):
         Returns:
         - np.ndarray: Points with the new dimension appended.
         """
-        if isinstance(dim_val, float):
-            return np.column_stack([points, np.array([dim_val] * len(points))])
-        else:
+        if isinstance(dim_val, np.ndarray):
             return np.column_stack([points, dim_val])
+        else:
+            return np.column_stack([points, np.array([dim_val] * len(points))])
 
     @staticmethod
     def plot_xy(x, y, title=None) -> None:
