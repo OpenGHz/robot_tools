@@ -48,10 +48,14 @@ def split_path(path: str, with_slash=False):
 
 import os
 
-def get_current_dir() -> str:
+
+def get_current_dir(upper: int = 0) -> str:
     """获取当前工作目录的绝对路径"""
     current_path = os.getcwd()
+    if upper > 0:
+        current_path = get_upper_path(current_path, upper)
     return current_path
+
 
 def get_pather_dir() -> str:
     """获取pather.py文件所在目录的绝对路径"""
@@ -84,7 +88,9 @@ def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], 
     """
     # 借助rospack工具和上述字符串处理函数找到包和工作空间的绝对路径
     rospack = rospkg.RosPack()
-    PKG_DIRECTORY = rospack.get_path(pkg_name)  # 获取ros包路径（例如：***/graspnet_pkg）
+    PKG_DIRECTORY = rospack.get_path(
+        pkg_name
+    )  # 获取ros包路径（例如：***/graspnet_pkg）
     if ws_name is not None:
         WS_DIRECTORY = remove_str_after_target(
             PKG_DIRECTORY, ws_name
