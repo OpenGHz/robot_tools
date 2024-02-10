@@ -49,7 +49,7 @@ class TrajsRecorder(object):
         if feature not in self._not_count_features:
             self.each_all_points_num[traj_id] += 1
 
-    def features_add(self, traj_id: int, features_val: List) -> None:
+    def features_add(self, traj_id: int, features_val: list) -> None:
         """
         添加多个特征值到指定轨迹中（自动增添轨迹ID）;
         features_val: 与features对应的特征值列表, 顺序与features一致的子集;
