@@ -104,7 +104,7 @@ class TrajsRecorder(object):
         # 指定count名且没有手动添加count时自动添加count
         if self._count is not None and trajs[0][self._count] is None:
             for i, traj in trajs.items():
-                traj[self._count] = self.each_points_num[i]
+                traj[self._count] = int(self.each_points_num[i])
         recorder.json_process(path, write=trajs)
         return True
 
