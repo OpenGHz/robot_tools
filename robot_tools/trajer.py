@@ -38,21 +38,33 @@ class TrajsRecorder(object):
         """设置不计数的特征种类名"""
         self._not_count_features |= features
 
-    def feature_add(self, traj_id: int, feature: str, value: Any) -> None:
-        """添加一个特征值到指定轨迹中（自动增添轨迹ID）"""
+    def feature_add(
+        self, traj_id: int, feature: str, value: Any, all: bool = False
+    ) -> None:
+        """
+        添加一个特征值value到指定traj_id轨迹中的feature里（自动增添轨迹ID）；
+            若value为可迭代对象，则将其转换为json支持的list格式；
+            若value为数值类型，则将其转换为float类型；
+        all: 若为True，则将value直接赋值给feature而不是向其中添加（不自动进行类型转换）；
+        """
         if self._trajs.get(traj_id) is None:
             self._trajs[traj_id] = deepcopy(self._traj)
             self.each_all_points_num[traj_id] = 0
-        if not isinstance(value, str):
-            if isinstance(value, Iterable):
-                value = list(value)  # 转换为json支持的list格式
-            # 排除numpy的数值类型
-            elif not isinstance(value, (int, float)):
-                value = float(value)
-        
-        self._trajs[traj_id][feature].append(value)
-        if feature not in self._not_count_features:
-            self.each_all_points_num[traj_id] += 1
+        if not all:
+            if not isinstance(value, str):
+                if isinstance(value, Iterable):
+                    value = list(value)  # 转换为json支持的list格式
+                # 排除numpy的数值类型
+                elif not isinstance(value, (int, float)):
+                    value = float(value)
+
+            self._trajs[traj_id][feature].append(value)
+            if feature not in self._not_count_features:
+                self.each_all_points_num[traj_id] += 1
+        else:
+            self._trajs[traj_id][feature] = value
+            if feature not in self._not_count_features:
+                self.each_all_points_num[traj_id] = len(value)
 
     def features_add(self, traj_id: int, features_val: list) -> None:
         """

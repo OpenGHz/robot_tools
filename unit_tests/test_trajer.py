@@ -41,6 +41,13 @@ class TestTrajsRecorder(unittest.TestCase):
         self.assertEqual(recorder.trajs[0][feature], [[1, 2, 3], [7, 8, 9]])
         self.assertEqual(recorder.each_all_points_num[0], 4)
 
+    def test_feature_add_all(self):
+        recorder = TrajsRecorder(["feature1"], count='num')
+        recorder.feature_add(0, "feature1", [1,2,3,4], all=True)
+        self.assertEqual(
+            recorder.trajs, {0: {"feature1": [1,2,3,4], 'num': None}}
+        )
+
     def test_features_add(self):
         recorder = TrajsRecorder(["feature1", "feature2"], count='num')
         recorder.features_add(0, [10, "value"])
