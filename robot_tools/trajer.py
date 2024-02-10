@@ -8,22 +8,63 @@ import atexit
 
 
 class TrajsRecorder(object):
-    def __init__(self, features: List[str], path: str = None):
-        self._features = features
+    def __init__(
+        self, features: List[str], path: str = None, count: Optional[str] = None
+    ):
+        """
+        用于记录轨迹数据的类:
+            features: 轨迹的特征种类名;
+            path: 轨迹数据存储路径，若为None则自动根据当前时间生成;
+            count: 轨迹的计数特征名，若为None则不自动记录轨迹数量;
+        """
+        self._count = count
         self._traj = {feature: [] for feature in features}
-        self._trajs = {0: self._traj.copy()}
+        if count is not None:
+            features = features + [count]
+            self._traj[count] = None
+        self._features = features
+        self._features_num = len(self._features)
+        self._trajs = {0: deepcopy(self._traj)}
         self._recorded = False
         self._path = path
+        self.each_all_points_num = {0: 0}
+        self.each_points_num = None
 
     def feature_add(self, traj_id: int, feature: str, value: Any):
-        if traj_id not in self._trajs:  # 默认取keys
-            self._trajs[traj_id] = self._traj.copy()
+        """添加一个特征值到指定轨迹中（自动增添轨迹ID）"""
+        if self._trajs.get(traj_id) is None:
+            self._trajs[traj_id] = deepcopy(self._traj)
+            self.each_all_points_num[traj_id] = 0
         self._trajs[traj_id][feature].append(value)
+        self.each_all_points_num[traj_id] += 1
+
+    def check(self, trajs=None) -> bool:
+        """检查轨迹数据是否完整（每个轨迹中的所有特征有相同的长度，各个轨迹是否有相同的特征种类，自动添加num）"""
+        if trajs is None:
+            trajs = self._trajs
+        self.trajs_num = len(trajs)
+        each_points_num = np.zeros(self.trajs_num, dtype=np.int64)
+        for i, traj in trajs.items():
+            each_points_num[i] = len(traj[self._features[0]])
+            for feature in self._features:
+                if traj.get(feature) is None:
+                    print(f"Error: Traj {i} does not have {feature}")
+                    return False
+                elif len(traj[feature]) != each_points_num[i]:
+                    print(f"Error: Traj {i} has different length of {feature}")
+                    return False
+        if len(set(each_points_num)) != 1:
+            print("Note: Different trajs have different points num")
+        self.each_points_num = each_points_num
+        return True
 
     def record(
-        self, path: str = None, trajs: Optional[Dict[int, Dict[str, List[Any]]]] = None
-    ):
-        """手动存储轨迹数据"""
+        self,
+        path: str = None,
+        trajs: Optional[Dict[int, Dict[str, List[Any]]]] = None,
+        check: bool = True,
+    ) -> bool:
+        """存储轨迹数据"""
         if path is None:
             if self._path is None:
                 # 获取当前系统时间
@@ -37,16 +78,37 @@ class TrajsRecorder(object):
             trajs = self._trajs
             # 保存非内部轨迹数据不修改内部记录状态
             self._recorded = True
-
+        if check:
+            if not self.check(trajs):
+                return False
+        # 指定count名且没有手动添加count时自动添加count
+        if self._count is not None and trajs[0][self._count] is None:
+            if self.each_points_num is None:  # 没有执行check
+                self.each_points_num = (
+                    np.array(list(self.each_all_points_num.values()))
+                    / (self._features_num - 1)
+                ).astype(np.int64)
+            for i, traj in trajs.items():
+                traj[self._count] = self.each_points_num[i]
         recorder.json_process(path, write=trajs)
+        return True
 
-    def ensure(self):
+    def auto_record(self):
         """若未手动存储，则在程序退出时尝试自动存储轨迹数据"""
         atexit.register(lambda: self.record() if not self._recorded else None)
 
     @property
     def trajs(self):
         return self._trajs
+
+    @property
+    def features(self):
+        return self._features
+
+    @property
+    def features_num(self):
+        """特征种类数（如有，则包含num特征）"""
+        return self._features_num
 
     def __getitem__(self, key):
         return self._trajs[key]
@@ -196,7 +258,7 @@ class TrajInfo(object):
         """
         if self._trajs is None or self._type != type:
             self._make_trajs(type)
-        return self._trajs.copy()
+        return deepcopy(self._trajs)
 
 
 class TrajTools(object):
@@ -666,7 +728,7 @@ class TrajTools(object):
     ) -> np.ndarray:
         """对数组进行归一化（）"""
         if has_nan:
-            trajs = trajs.copy()
+            trajs = deepcopy(trajs)
             nan_mask = np.isnan(trajs)
             trajs[nan_mask] = 0
         type2axis = {"h": 1, "v": 0}
