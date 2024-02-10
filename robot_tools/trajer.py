@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Dict, Union, Optional, Any
+from typing import List, Tuple, Dict, Union, Optional, Any, Set
 from . import recorder
 from matplotlib import pyplot as plt
 from copy import deepcopy
@@ -10,43 +10,52 @@ import atexit
 class TrajsRecorder(object):
     def __init__(
         self, features: List[str], path: str = None, count: Optional[str] = None
-    ):
+    ) -> None:
         """
-        用于记录轨迹数据的类:
-            features: 轨迹的特征种类名;
+        用于记录轨迹数据的类：
+            features: 轨迹的特征种类名（每个轨迹中的所有featurs长度相同）;
             path: 轨迹数据存储路径，若为None则自动根据当前时间生成;
             count: 轨迹的计数特征名，若为None则不自动记录轨迹数量;
         """
         self._count = count
         self._traj = {feature: [] for feature in features}
+        self._not_count_features = set()
         if count is not None:
             features = features + [count]
             self._traj[count] = None
-        self._features = features
-        self._features_num = len(self._features)
+            self._not_count_features.add(count)
+        self._all_features = features
+        self._counted_features = set(features) - self._not_count_features
+        self._all_features_num = len(self._all_features)
+        self._counted_features_num = len(self._counted_features)
         self._trajs = {0: deepcopy(self._traj)}
         self._recorded = False
         self._path = path
         self.each_all_points_num = {0: 0}
-        self.each_points_num = None
+        self._each_points_num = None
 
-    def feature_add(self, traj_id: int, feature: str, value: Any):
+    def add_not_count_features(self, features: Set[str]) -> None:
+        """设置不计数的特征种类名"""
+        self._not_count_features |= features
+
+    def feature_add(self, traj_id: int, feature: str, value: Any) -> None:
         """添加一个特征值到指定轨迹中（自动增添轨迹ID）"""
         if self._trajs.get(traj_id) is None:
             self._trajs[traj_id] = deepcopy(self._traj)
             self.each_all_points_num[traj_id] = 0
         self._trajs[traj_id][feature].append(value)
-        self.each_all_points_num[traj_id] += 1
+        if feature not in self._not_count_features:
+            self.each_all_points_num[traj_id] += 1
 
     def check(self, trajs=None) -> bool:
-        """检查轨迹数据是否完整（每个轨迹中的所有特征有相同的长度，各个轨迹是否有相同的特征种类，自动添加num）"""
+        """检查轨迹数据是否完整（每个轨迹中的所有计数特征有相同的长度，各个轨迹是否有相同的特征种类）"""
         if trajs is None:
             trajs = self._trajs
         self.trajs_num = len(trajs)
         each_points_num = np.zeros(self.trajs_num, dtype=np.int64)
         for i, traj in trajs.items():
-            each_points_num[i] = len(traj[self._features[0]])
-            for feature in self._features:
+            each_points_num[i] = len(traj[list(self._counted_features)[0]])
+            for feature in self._counted_features:
                 if traj.get(feature) is None:
                     print(f"Error: Traj {i} does not have {feature}")
                     return False
@@ -55,14 +64,14 @@ class TrajsRecorder(object):
                     return False
         if len(set(each_points_num)) != 1:
             print("Note: Different trajs have different points num")
-        self.each_points_num = each_points_num
+        self._each_points_num = each_points_num
         return True
 
     def record(
         self,
         path: str = None,
         trajs: Optional[Dict[int, Dict[str, List[Any]]]] = None,
-        check: bool = True,
+        check: bool = False,
     ) -> bool:
         """存储轨迹数据"""
         if path is None:
@@ -83,11 +92,6 @@ class TrajsRecorder(object):
                 return False
         # 指定count名且没有手动添加count时自动添加count
         if self._count is not None and trajs[0][self._count] is None:
-            if self.each_points_num is None:  # 没有执行check
-                self.each_points_num = (
-                    np.array(list(self.each_all_points_num.values()))
-                    / (self._features_num - 1)
-                ).astype(np.int64)
             for i, traj in trajs.items():
                 traj[self._count] = self.each_points_num[i]
         recorder.json_process(path, write=trajs)
@@ -103,12 +107,22 @@ class TrajsRecorder(object):
 
     @property
     def features(self):
-        return self._features
+        return self._all_features
 
     @property
     def features_num(self):
         """特征种类数（如有，则包含num特征）"""
-        return self._features_num
+        return self._all_features_num
+
+    @property
+    def each_points_num(self):
+        """每个轨迹的点数"""
+        if self._each_points_num is None:  # 没有执行check
+            self._each_points_num = (
+                np.array(list(self.each_all_points_num.values()))
+                / (self._counted_features_num)
+            ).astype(np.int64)
+        return self._each_points_num
 
     def __getitem__(self, key):
         return self._trajs[key]
