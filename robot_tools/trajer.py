@@ -78,7 +78,7 @@ class TrajsRecorder(object):
         self._each_points_num = each_points_num
         return True
 
-    def record(
+    def save(
         self,
         path: str = None,
         trajs: Optional[Dict[int, Dict[str, List[Any]]]] = None,
@@ -108,9 +108,9 @@ class TrajsRecorder(object):
         recorder.json_process(path, write=trajs)
         return True
 
-    def auto_record(self):
+    def auto_save(self):
         """若未手动存储，则在程序退出时尝试自动存储轨迹数据"""
-        atexit.register(lambda: self.record() if not self._recorded else None)
+        atexit.register(lambda: self.save() if not self._recorded else None)
 
     @property
     def trajs(self):

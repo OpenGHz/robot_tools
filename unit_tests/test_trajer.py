@@ -42,11 +42,11 @@ class TestTrajsRecorder(unittest.TestCase):
         self.assertEqual(recorder.each_all_points_num[0], 4)
 
     def test_features_add(self):
-        recorder = TrajsRecorder(["feature1", "feature2"])
+        recorder = TrajsRecorder(["feature1", "feature2"], count='num')
         recorder.features_add(0, [10, "value"])
         recorder.features_add(0, [20, "value2"])
         self.assertEqual(
-            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value", "value2"]}}
+            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value", "value2"], 'num': None}}
         )
 
     @patch("robot_tools.trajer.recorder.json_process")
@@ -54,7 +54,7 @@ class TestTrajsRecorder(unittest.TestCase):
         recorder = TrajsRecorder(["feature1", "feature2"], "trajs.json")
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
-        recorder.record(check=True)
+        recorder.save(check=True)
         mock_json_process.assert_called_once_with(
             "trajs.json", write={0: {"feature1": [10], "feature2": ["value"]}}
         )
@@ -65,7 +65,7 @@ class TestTrajsRecorder(unittest.TestCase):
         recorder = TrajsRecorder(["feature1", "feature2"], "trajs.json")
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
-        recorder.record()
+        recorder.save()
         mock_json_process.assert_called_once_with(
             "trajs.json", write={0: {"feature1": [10], "feature2": ["value"]}}
         )
@@ -76,7 +76,7 @@ class TestTrajsRecorder(unittest.TestCase):
         recorder = TrajsRecorder(["feature1", "feature2"])
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
-        recorder.record(
+        recorder.save(
             path="/path/to/custom.json",
             trajs={0: {"feature1": [20], "feature2": ["custom"]}},
         )
@@ -90,7 +90,7 @@ class TestTrajsRecorder(unittest.TestCase):
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
         with patch("robot_tools.trajer.recorder.json_process") as mock_json_process:
-            recorder.auto_record()
+            recorder.auto_save()
         mock_json_process.assert_not_called()
 
     def test_trajs(self):
