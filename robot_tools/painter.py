@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # 需要import来支持3D，尽管不直接使用
+from typing import Union
 
 
 class Painter2D(object):
@@ -60,6 +61,25 @@ class Painter2D(object):
         )
         rotated_points = np.dot(points, rotation_matrix.T)
         return rotated_points
+
+    @staticmethod
+    def append_one_dim(
+        points: np.array, dim_val: Union[float, np.ndarray]
+    ) -> np.ndarray:
+        """
+        Append a new dimension to the points with the same value.
+
+        Parameters:
+        - points (np.ndarray): Array of 2D points with shape (n, 2).
+        - dim_val (float or np.ndarray): Value for the new dimension.
+
+        Returns:
+        - np.ndarray: Points with the new dimension appended.
+        """
+        if isinstance(dim_val, float):
+            return np.column_stack([points, np.array([dim_val] * len(points))])
+        else:
+            return np.column_stack([points, dim_val])
 
     @staticmethod
     def plot_xy(x, y, title=None) -> None:
@@ -325,14 +345,15 @@ class Painter2D(object):
         生成螺旋线轨迹的函数（由内向外展开）
 
         参数：
-        - a: 螺旋线的扭曲参数，决定了螺旋线的最小半径
+        - a: 螺旋线的扭曲参数
         - b: 螺旋线的展开参数(b=0时为圆形螺旋线, b越大螺旋线展开越快，越松散)
         - num_points: 生成轨迹的点数
-        - turns: 螺旋线的圈数
-        - plot: 是否绘制螺旋线图形，默认为True
+        - turns: 螺旋线的圈数，a和b一定时，圈数越多，螺旋线外围越大
+        - plot: 是否绘制螺旋线图形，默认为False
         - start_point: 螺旋线的起始点，默认为原点(0, 0)
         - end_phase: 螺旋线最后一轮展开的终止相位，默认为None即展开到2π
-        - points_allocate_mode: end_phase不为None时的轨迹点分配模式，
+        - points_allocate_mode:
+            end_phase不为None时的轨迹点分配模式，
             time表示按t长度均匀分配轨迹点数，turn按圈数分配
 
         返回：轨迹点序列
