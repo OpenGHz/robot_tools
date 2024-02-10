@@ -41,6 +41,14 @@ class TestTrajsRecorder(unittest.TestCase):
         self.assertEqual(recorder.trajs[0][feature], [[1, 2, 3], [7, 8, 9]])
         self.assertEqual(recorder.each_all_points_num[0], 4)
 
+    def test_features_add(self):
+        recorder = TrajsRecorder(["feature1", "feature2"])
+        recorder.features_add(0, [10, "value"])
+        recorder.features_add(0, [20, "value2"])
+        self.assertEqual(
+            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value", "value2"]}}
+        )
+
     @patch("robot_tools.trajer.recorder.json_process")
     def test_record_with_check(self, mock_json_process):
         recorder = TrajsRecorder(["feature1", "feature2"], "trajs.json")

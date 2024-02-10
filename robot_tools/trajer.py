@@ -49,6 +49,15 @@ class TrajsRecorder(object):
         if feature not in self._not_count_features:
             self.each_all_points_num[traj_id] += 1
 
+    def features_add(self, traj_id: int, features_val: List) -> None:
+        """
+        添加多个特征值到指定轨迹中（自动增添轨迹ID）;
+        features_val: 与features对应的特征值列表, 顺序与features一致的子集;
+        始终从第一个特征开始添加，若特征值列表长度小于特征数，则多余的特征值将被忽略；
+        """
+        for i, val in enumerate(features_val):
+            self.feature_add(traj_id, self._all_features[i], val)
+
     def check(self, trajs=None) -> bool:
         """检查轨迹数据是否完整（每个轨迹中的所有计数特征有相同的长度，各个轨迹是否有相同的特征种类）"""
         if trajs is None:
