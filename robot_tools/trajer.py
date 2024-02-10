@@ -781,6 +781,26 @@ class TrajTools(object):
             trajs[nan_mask] = np.nan
         return trajs
 
+    @staticmethod
+    def append_point(
+        trajs: np.ndarray, point: np.ndarray, grow_type: str = "h"
+    ) -> np.ndarray:
+        """将点数据(N,)添加到轨迹数据中"""
+        if grow_type == "h":
+            return np.append(trajs, [point], axis=1)
+        else:
+            return np.append(trajs, [point], axis=0)
+
+    @staticmethod
+    def insert_point(
+        trajs: np.ndarray, index: int, point: np.ndarray, grow_type: str = "h"
+    ) -> np.ndarray:
+        """将点数据(N,)插入到轨迹数据中"""
+        if grow_type == "h":
+            return np.insert(trajs, index, [point], axis=1)
+        else:
+            return np.insert(trajs, index, [point], axis=0)
+
 
 class Trajer(object):
     traj_tool = TrajTools
