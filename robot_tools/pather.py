@@ -48,9 +48,13 @@ def split_path(path: str, with_slash=False):
 
 import os
 
+def get_current_dir() -> str:
+    """获取当前工作目录的绝对路径"""
+    current_path = os.getcwd()
+    return current_path
 
-def get_current_path() -> str:
-    """获取当前文件所在的绝对路径"""
+def get_pather_dir() -> str:
+    """获取pather.py文件所在目录的绝对路径"""
     root_path = os.path.dirname(os.path.abspath(__file__))
     return root_path
 
@@ -91,8 +95,9 @@ def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], 
 
 
 if __name__ == "__main__":
-    cp = get_current_path() + ":"
-    up = get_upper_path(cp, 2) + ":"
+    cp = get_current_dir()
+    pp = get_pather_dir() + ":"
+    up = get_upper_path(pp, 2) + ":"
     rp = get_ros_pkg_and_workspace_path("graspnet_pkg", "graspnet_ws")
-    sp = split_path(cp)
-    print(cp, up, rp, sp)
+    sp = split_path(pp)
+    print(pp, up, rp, sp)
