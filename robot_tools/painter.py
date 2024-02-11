@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # 需要import来支持3D，尽管不直接使用
-from typing import Union
+from typing import Union, Optional
 
 
 class Painter2D(object):
@@ -337,8 +337,8 @@ class Painter2D(object):
         num_points: int,
         turns: int,
         plot: bool = False,
-        start_point: tuple = (0, 0),
-        end_phase: float = None,
+        start_point: Optional[tuple] = (0, 0),
+        end_phase: Optional[float] = None,
         points_allocate_mode: str = "time",
     ) -> np.ndarray:
         """
@@ -358,6 +358,10 @@ class Painter2D(object):
 
         返回：轨迹点序列
         """
+        if start_point is None:
+            # 不加任何偏移时起始点如下，不是(0,0)
+            start_point = (a, 0)
+
         x_bias = -start_point[0] + a
         y_bias = start_point[1]
         if end_phase is None:
