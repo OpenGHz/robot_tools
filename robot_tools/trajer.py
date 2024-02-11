@@ -801,6 +801,44 @@ class TrajTools(object):
         else:
             return np.insert(trajs, index, [point], axis=0)
 
+    @staticmethod
+    def append_traj(
+        trajs: np.ndarray, traj: np.ndarray, grow_type: str = "h"
+    ) -> np.ndarray:
+        """将轨迹数据(N, M)添加到轨迹数据中"""
+        if grow_type == "h":
+            return np.append(trajs, traj, axis=1)
+        else:
+            return np.append(trajs, traj, axis=0)
+
+    @staticmethod
+    def insert_traj(
+        trajs: np.ndarray, index: int, traj: np.ndarray, grow_type: str = "h"
+    ) -> np.ndarray:
+        """将轨迹数据(N, M)插入到轨迹数据中"""
+        if grow_type == "h":
+            return np.insert(trajs, index, traj, axis=1)
+        else:
+            return np.insert(trajs, index, traj, axis=0)
+
+    @staticmethod
+    def repeat_points(
+        trajs: np.ndarray, times: int, grow_type: str = "h"
+    ) -> np.ndarray:
+        """将轨迹数据中的每个轨迹点重复times次"""
+        if grow_type == "h":
+            return np.repeat(trajs, times, axis=1)
+        else:
+            return np.repeat(trajs, times, axis=0)
+
+    @staticmethod
+    def repeat_trajs(trajs: np.ndarray, times: int, grow_type: str = "h") -> np.ndarray:
+        """将轨迹数据重复times次"""
+        if grow_type == "h":
+            return np.tile(trajs, (1, times))
+        else:
+            return np.tile(trajs, (times, 1))
+
 
 class Trajer(object):
     traj_tool = TrajTools
