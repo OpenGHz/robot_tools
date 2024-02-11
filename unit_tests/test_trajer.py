@@ -58,23 +58,31 @@ class TestTrajsRecorder(unittest.TestCase):
 
     @patch("robot_tools.trajer.recorder.json_process")
     def test_record_with_check(self, mock_json_process):
-        recorder = TrajsRecorder(["feature1", "feature2"], "trajs.json")
+        recorder = TrajsRecorder(["feature1", "feature2", "not_count"], "trajs.json")
+        recorder.set_not_count_features({"not_count"})
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
+        recorder.feature_add(0, "not_count", "none1")
+        recorder.feature_add(0, "not_count", "none2")
         recorder.save(check=True)
+        print(recorder._counted_features)
+        print(recorder.each_all_points_num)
         mock_json_process.assert_called_once_with(
-            "trajs.json", write={0: {"feature1": [10], "feature2": ["value"]}}
+            "trajs.json", write={0: {"feature1": [10], "feature2": ["value"], "not_count": ["none1", "none2"]}}
         )
-        self.assertEqual(recorder._each_points_num[0], 1)
+        self.assertEqual(recorder.each_points_num[0], 1)
 
     @patch("robot_tools.trajer.recorder.json_process")
     def test_record_without_check(self, mock_json_process):
-        recorder = TrajsRecorder(["feature1", "feature2"], "trajs.json")
+        recorder = TrajsRecorder(["feature1", "feature2", "not_count"], "trajs.json")
+        recorder.set_not_count_features({"not_count"})
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value")
+        recorder.feature_add(0, "not_count", "none1")
+        recorder.feature_add(0, "not_count", "none2")
         recorder.save()
         mock_json_process.assert_called_once_with(
-            "trajs.json", write={0: {"feature1": [10], "feature2": ["value"]}}
+            "trajs.json", write={0: {"feature1": [10], "feature2": ["value"], "not_count": ["none1", "none2"]}}
         )
         self.assertEqual(recorder.each_points_num[0], 1)
 

@@ -13,7 +13,7 @@ class TrajsRecorder(object):
     ) -> None:
         """
         用于记录轨迹数据的类：
-            features: 轨迹的特征种类名（每个轨迹中的所有featurs长度相同）;
+            features: 轨迹的特征种类名（每个轨迹中的所有featurs长度相同，除非被设置为非count特征）;
             path: 轨迹数据存储路径，若为None则自动根据当前时间生成;
             count: 轨迹的计数特征名，若为None则不自动记录轨迹数量;
         """
@@ -24,9 +24,9 @@ class TrajsRecorder(object):
             features = features + [count]
             self._traj[count] = None
             self._not_count_features.add(count)
-        self._all_features = features
-        self._counted_features = set(features) - self._not_count_features
+        self._all_features = features  # list类型
         self._all_features_num = len(self._all_features)
+        self._counted_features = set(features) - self._not_count_features
         self._counted_features_num = len(self._counted_features)
         self._trajs = {0: deepcopy(self._traj)}
         self._recorded = False
@@ -34,9 +34,16 @@ class TrajsRecorder(object):
         self.each_all_points_num = {0: 0}
         self._each_points_num = None
 
-    def add_not_count_features(self, features: Set[str]) -> None:
-        """设置不计数的特征种类名"""
+    def set_not_count_features(self, features: Set[str]) -> None:
+        """
+        设置不计数的特征种类名（需在执行add前完成配置）；
+        """
+        features = set(features)
+        if not features.issubset(self._all_features):
+            raise ValueError("Features not in all (init) features")
         self._not_count_features |= features
+        self._counted_features -= features
+        self._counted_features_num = len(self._counted_features)
 
     def feature_add(
         self, traj_id: int, feature: str, value: Any, all: bool = False
@@ -59,11 +66,11 @@ class TrajsRecorder(object):
                     value = float(value)
 
             self._trajs[traj_id][feature].append(value)
-            if feature not in self._not_count_features:
+            if feature in self._counted_features:
                 self.each_all_points_num[traj_id] += 1
         else:
             self._trajs[traj_id][feature] = value
-            if feature not in self._not_count_features:
+            if feature in self._counted_features:
                 self.each_all_points_num[traj_id] = len(value)
 
     def features_add(self, traj_id: int, features_val: list) -> None:
@@ -139,17 +146,16 @@ class TrajsRecorder(object):
 
     @property
     def features_num(self):
-        """特征种类数（如有，则包含num特征）"""
+        """所有特征种类数"""
         return self._all_features_num
 
     @property
     def each_points_num(self):
         """每个轨迹的点数"""
-        if self._each_points_num is None:  # 没有执行check
-            self._each_points_num = (
-                np.array(list(self.each_all_points_num.values()))
-                / (self._counted_features_num)
-            ).astype(np.int64)
+        self._each_points_num = (
+            np.array(list(self.each_all_points_num.values()))
+            / (self._counted_features_num)
+        ).astype(np.int64)
         return self._each_points_num
 
     def __getitem__(self, key):
