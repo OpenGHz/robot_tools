@@ -31,7 +31,7 @@ class TrajsRecorder(object):
         self._trajs = {0: deepcopy(self._traj)}
         self._recorded = False
         self._path = path
-        self.each_all_points_num = {0: 0}
+        self._each_all_points_num = {0: 0}
         self._each_points_num = None
 
     def set_not_count_features(self, features: Set[str]) -> None:
@@ -56,7 +56,7 @@ class TrajsRecorder(object):
         """
         if self._trajs.get(traj_id) is None:
             self._trajs[traj_id] = deepcopy(self._traj)
-            self.each_all_points_num[traj_id] = 0
+            self._each_all_points_num[traj_id] = 0
         if not all:
             if not isinstance(value, str):
                 if isinstance(value, Iterable):
@@ -67,11 +67,11 @@ class TrajsRecorder(object):
 
             self._trajs[traj_id][feature].append(value)
             if feature in self._counted_features:
-                self.each_all_points_num[traj_id] += 1
+                self._each_all_points_num[traj_id] += 1
         else:
             self._trajs[traj_id][feature] = value
             if feature in self._counted_features:
-                self.each_all_points_num[traj_id] = len(value)
+                self._each_all_points_num[traj_id] += len(value)
 
     def features_add(self, traj_id: int, features_val: list) -> None:
         """
@@ -153,7 +153,7 @@ class TrajsRecorder(object):
     def each_points_num(self):
         """每个轨迹的点数"""
         self._each_points_num = (
-            np.array(list(self.each_all_points_num.values()))
+            np.array(list(self._each_all_points_num.values()))
             / (self._counted_features_num)
         ).astype(np.int64)
         return self._each_points_num
