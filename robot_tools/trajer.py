@@ -783,23 +783,51 @@ class TrajTools(object):
 
     @staticmethod
     def append_point(
-        trajs: np.ndarray, point: np.ndarray, grow_type: str = "h"
+        trajs: np.ndarray,
+        point: np.ndarray,
+        grow_type: str = "h",
+        del_fist: bool = False,
     ) -> np.ndarray:
-        """将点数据(N,)添加到轨迹数据中"""
+        """
+        将点数据(N,)添加到轨迹数据中；
+        del_fist: 是否删除第一个点；
+        """
         if grow_type == "h":
-            return np.append(trajs, [point], axis=1)
+            grow_type = 1
         else:
-            return np.append(trajs, [point], axis=0)
+            grow_type = 0
+        trajs = np.append(trajs, [point], axis=grow_type)
+        if del_fist:
+            if grow_type == 0:
+                trajs = trajs[:-1]
+            else:
+                trajs = trajs[:, :-1]
+        return trajs
 
     @staticmethod
     def insert_point(
-        trajs: np.ndarray, index: int, point: np.ndarray, grow_type: str = "h"
+        trajs: np.ndarray,
+        index: int,
+        point: np.ndarray,
+        grow_type: str = "h",
+        del_last: bool = False,
     ) -> np.ndarray:
-        """将点数据(N,)插入到轨迹数据中"""
+        """
+        将点数据(N,)插入到轨迹数据中的指定位置；
+        index: 插入位置；
+        del_last: 是否删除最后一个点；
+        """
         if grow_type == "h":
-            return np.insert(trajs, index, [point], axis=1)
+            grow_type = 1
         else:
-            return np.insert(trajs, index, [point], axis=0)
+            grow_type = 0
+        trajs = np.insert(trajs, index, [point], axis=grow_type)
+        if del_last:
+            if grow_type == 0:
+                trajs = trajs[:-1]
+            else:
+                trajs = trajs[:, :-1]
+        return trajs
 
     @staticmethod
     def append_traj(
