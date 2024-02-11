@@ -375,15 +375,15 @@ class Painter2D(object):
                 t1_points_num = int(num_points * t_1_lenth / total_lenth)
                 t2_points_num = num_points - t1_points_num
                 t_1 = np.linspace(0, t1_end_phase, t1_points_num)
-                t_2 = np.linspace(t1_end_phase, t2_end_phase, t2_points_num)
-                t = np.concatenate((t_1, t_2))
+                t_2 = np.linspace(t1_end_phase, t2_end_phase, t2_points_num + 1)
+                t = np.concatenate((t_1, t_2[1:]))
             # 按圈数分配（最后一圈的相位越大，最后一圈的点越稀疏）
             else:
                 t_1_points_num = int(num_points * (turns - 1) / turns)
                 t_2_points_num = num_points - t_1_points_num
                 t_1 = np.linspace(0, t1_end_phase, t_1_points_num)
-                t_2 = np.linspace(t1_end_phase, t2_end_phase, t_2_points_num)
-                t = np.concatenate((t_1, t_2))
+                t_2 = np.linspace(t1_end_phase, t2_end_phase, t_2_points_num + 1)
+                t = np.concatenate((t_1, t_2[1:]))
 
         x = (a + b * t) * np.cos(t) - x_bias
         y = (a + b * t) * np.sin(t) + y_bias
