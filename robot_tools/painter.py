@@ -352,6 +352,7 @@ class Painter2D(object):
         - plot: 是否绘制螺旋线图形，默认为False
         - start_point: 螺旋线的起始点，默认为原点(0, 0)
         - end_phase: 螺旋线最后一轮展开的终止相位，默认为None即展开到2π
+            注意：末端实际值受初始偏移一同影响
         - points_allocate_mode:
             end_phase不为None时的轨迹点分配模式，
             time表示按t长度均匀分配轨迹点数，turn按圈数分配
