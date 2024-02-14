@@ -347,23 +347,23 @@ class TrajTools(object):
             each_points_num[i] = len(trajs[str(i)][feature])
         max_points_num = np.max(each_points_num)
         try:
-            features_dim = len(trajs["0"][feature][0])  # 特征维度
+            points_dim = len(trajs["0"][feature][0])  # 特征维度
         except TypeError:
-            features_dim = 1
+            points_dim = 1
         # 按时间组合（时间以最大点数轨迹为准）
-        if features_dim == 1:
+        if points_dim == 1:
             time_trajs = np.full((int(max_points_num), trajs_num), np.nan)
         else:
-            time_trajs = np.full((int(max_points_num), trajs_num, features_dim), np.nan)
+            time_trajs = np.full((int(max_points_num), trajs_num, points_dim), np.nan)
         if series_type is not None:
             all_points_num = int(sum(each_points_num))
             # default grow vertically
-            trajs_series = np.zeros((all_points_num, features_dim))
+            trajs_series = np.zeros((all_points_num, points_dim))
         else:
             trajs_series = None
         if mixed_type is not None:
             trajs_mixed = np.full(
-                (int(max_points_num * trajs_num), features_dim), np.nan
+                (int(max_points_num * trajs_num), points_dim), np.nan
             )
         else:
             trajs_mixed = None
@@ -379,11 +379,11 @@ class TrajTools(object):
                     current_points_num : current_points_num + points_num, :
                 ] = time_trajs[:, i][:points_num, :]
                 current_points_num += points_num
-        info = TrajInfo(trajs_num, each_points_num, max_points_num, features_dim)
+        info = TrajInfo(trajs_num, each_points_num, max_points_num, points_dim)
         if show_info:
-            print("Number of trajectories: ", trajs_num)
-            print("Number of features: ", features_dim)
-            print("Number of each points: ", each_points_num)
+            print(f"{feature} trajectories number: ", trajs_num)
+            print(f"{feature} each points number: ", each_points_num)
+            print(f"{feature} points dim: ", points_dim)
         if series_type is not None or mixed_type is not None:
             if series_type == "h":
                 trajs_series = trajs_series.T
