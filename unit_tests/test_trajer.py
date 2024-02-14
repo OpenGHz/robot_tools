@@ -9,51 +9,49 @@ class TestTrajsRecorder(unittest.TestCase):
         features = ["feature1", "feature2"]
         path = "/path/to/trajs.json"
         recorder = TrajsRecorder(features, path)
-        self.assertEqual(recorder._all_features, features)
+        self.assertEqual(recorder._features, features)
         self.assertEqual(recorder._traj, {"feature1": [], "feature2": []})
         self.assertEqual(recorder._trajs, {0: {"feature1": [], "feature2": []}})
         self.assertFalse(recorder._recorded)
         self.assertEqual(recorder._path, path)
 
     def test_feature_add_scalar(self):
-        recorder = TrajsRecorder(["feature1", "feature2"], count='num')
+        recorder = TrajsRecorder(["feature1", "feature2"])
         recorder.feature_add(0, "feature1", 10)
         recorder.feature_add(0, "feature2", "value1")
         recorder.feature_add(0, "feature1", 20)
         recorder.feature_add(0, "feature2", "value2")
         self.assertEqual(
-            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value1", "value2"], 'num': None}}
+            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value1", "value2"]}}
         )
         feature = 'feature1'
         self.assertEqual(recorder.trajs[0][feature], [10, 20])
-        self.assertEqual(recorder.each_all_points_num[0], 4)
 
     def test_feature_add_iterable(self):
-        recorder = TrajsRecorder(["feature1", "feature2"], count='num')
+        recorder = TrajsRecorder(["feature1", "feature2"])
         recorder.feature_add(0, "feature1", [1,2,3])
         recorder.feature_add(0, "feature2", np.array([4,5,6]))
         recorder.feature_add(0, "feature1", (7,8,9))
         recorder.feature_add(0, "feature2", {10,11,12})
         self.assertEqual(
-            recorder.trajs, {0: {"feature1": [[1, 2, 3], [7, 8, 9]], "feature2": [[4, 5, 6], [10, 11, 12]], 'num': None}}
+            recorder.trajs, {0: {"feature1": [[1, 2, 3], [7, 8, 9]], "feature2": [[4, 5, 6], [10, 11, 12]]}}
         )
         feature = 'feature1'
         self.assertEqual(recorder.trajs[0][feature], [[1, 2, 3], [7, 8, 9]])
-        self.assertEqual(recorder.each_all_points_num[0], 4)
 
     def test_feature_add_all(self):
-        recorder = TrajsRecorder(["feature1"], count='num')
+        recorder = TrajsRecorder(["feature1"])
         recorder.feature_add(0, "feature1", [1,2,3,4], all=True)
         self.assertEqual(
-            recorder.trajs, {0: {"feature1": [1,2,3,4], 'num': None}}
+            recorder.trajs, {0: {"feature1": [1,2,3,4]}}
         )
 
     def test_features_add(self):
-        recorder = TrajsRecorder(["feature1", "feature2"], count='num')
+        recorder = TrajsRecorder(["feature1", "feature2"])
         recorder.features_add(0, [10, "value"])
         recorder.features_add(0, [20, "value2"])
         self.assertEqual(
-            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value", "value2"], 'num': None}}
+            recorder.trajs, {0: {"feature1": [10, 20], "feature2": ["value", "value2"]}}
         )
 
     @patch("robot_tools.trajer.recorder.json_process")
@@ -65,8 +63,6 @@ class TestTrajsRecorder(unittest.TestCase):
         recorder.feature_add(0, "not_count", "none1")
         recorder.feature_add(0, "not_count", "none2")
         recorder.save(check=True)
-        print(recorder._counted_features)
-        print(recorder.each_all_points_num)
         mock_json_process.assert_called_once_with(
             "trajs.json", write={0: {"feature1": [10], "feature2": ["value"], "not_count": ["none1", "none2"]}}
         )
