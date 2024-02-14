@@ -195,7 +195,7 @@ if __name__ == "__main__":
         # get axs to draw more on the same figures
         obs_painter.features_self_labels = "experimental group"
         axs = obs_painter.plot_features_with_t(
-            (0, 3), traj_draw, (0, 1, 2), return_axs=True
+            (0, 3), traj_draw, (0, 1, 2), return_axis=True
         )
         obs_painter.update_trajs(trajs5[2], info5)
         trajs, info = obs_painter.get_trajs_and_info()
@@ -205,13 +205,13 @@ if __name__ == "__main__":
         obs_painter.features_self_labels = "control group"
         # 可以指定不同的特征重复画(这里没有绘制第二个特征)
         # obs_painter.set_pause(1)
-        obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axs=axs)
+        obs_painter.plot_features_with_t((0, 3), traj_draw, (0, 2), given_axis=axs)
 
         # plot_2D_features test
         print(obs_painter.get_trajs_and_info()[0])
-        axs = obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), return_axs=True)
+        axs = obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), return_axis=True)
         obs_painter.update_trajs(trajs4[2], info4)
         obs_painter.trajs_labels = r"$trajectories_2$"
         obs_painter.trajs_lines = "->r"
         obs_painter.trajs_markersize = 3
-        obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), given_axs=axs)
+        obs_painter.plot_2D_features((0, 3), (0, 1), (0, 1), given_axis=axs)
