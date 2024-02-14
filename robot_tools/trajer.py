@@ -993,7 +993,7 @@ class TrajsPainter(object):
         dT: float = 1,
         row_col: tuple = None,
         given_axis=None,
-        return_axis=None,
+        return_axis=False,
     ):
         """points是连贯的点，而trajs和indexes是指定的序号，可以不连贯"""
         start_point = points[0]
@@ -1068,7 +1068,7 @@ class TrajsPainter(object):
         indexes: tuple,
         title: str = None,
         given_axis=None,
-        return_axis=None,
+        return_axis=False,
     ):
         trajs_num = self._trajs_info.trajs_num
         start = points[0]
@@ -1164,7 +1164,3 @@ class TrajsPainter(object):
         else:
             self._features_self_labels = labels
 
-    @property
-    def axis(self):
-        """当前绘图用的轴系"""
-        return plt.gca()
