@@ -151,6 +151,12 @@ class TrajsRecorder(object):
             self._each_points_num[i] = len(traj[first_counted])
         return self._each_points_num
 
+    @property
+    def each_features_dim(self):
+        """每个特征的维度（仅考虑计数特征）"""
+        counted = set(self._features) - self._not_count_features
+        return [len(self._trajs[0][feature]) for feature in counted]
+
     def __getitem__(self, index):
         return self._trajs[index]
 
@@ -161,14 +167,14 @@ class TrajInfo(object):
         trajs_num: int,
         each_points_num: Union[int, np.ndarray],
         max_points_num: Optional[int],
-        features_num: int,
+        points_dim: int,
     ):
         """
         each_points_num: 每个轨迹的点数；
             为int时，认为轨迹点数相同自动计算；
             为np.ndarray时，每个轨迹点数可以不同；
             为None时，认为轨迹点数相同，自动根据max_points_num计算（需给定）；
-        max_points_num: 每个轨迹的最大点数；为None时，自动根据each_points_num计算；
+        max_points_num: 每个轨迹的最大点数；为None时，自动根据each_points_num计算，当轨迹数很多时可能会有较大的计算开销，因此这里允许直接指定；
         make_trajs: series_v, series_h, mixed_v, mixed_h, time_trajs, traj_times；
             若不为None，则根据trajs_num, each_points_num, max_points_num, features_num构造nan轨迹数据；
             构造的轨迹数据可以通过get_trajs()获取。若初始化未构造或构造的类型和目标类型不一致，则该函数将先完成（重新）构造；
@@ -183,7 +189,7 @@ class TrajInfo(object):
         if max_points_num is None:
             max_points_num = np.max(each_points_num)
         self.max_points_num = int(max_points_num)
-        self.features_num = features_num
+        self.points_dim = points_dim
         self._trajs = None
         self._type = None
 
@@ -193,7 +199,7 @@ class TrajInfo(object):
                 self.trajs_num == other.trajs_num
                 and np.allclose(self.each_points_num, other.each_points_num)
                 and self.max_points_num == other.max_points_num
-                and self.features_num == other.features_num
+                and self.points_dim == other.points_dim
             )
         return False
 
@@ -205,7 +211,7 @@ class TrajInfo(object):
         trajs_num: int = None,
         each_points_num: Union[str, np.ndarray] = None,
         max_points_num: int = None,
-        features_num: int = None,
+        points_dim: int = None,
         log: bool = False,
     ):
         """
@@ -220,7 +226,7 @@ class TrajInfo(object):
             max_points_num = (
                 trajs.shape[0] if max_points_num is None else max_points_num
             )
-            features_num = trajs.shape[2] if features_num is None else features_num
+            points_dim = trajs.shape[2] if points_dim is None else points_dim
             if each_points_num == "equal":
                 each_points_num = np.full(trajs_num, max_points_num)
             elif each_points_num is not None:
@@ -235,7 +241,7 @@ class TrajInfo(object):
             if "v" in type:
                 trajs = trajs.T
             shape = trajs.shape
-            features_num = shape[0] if features_num is None else features_num
+            points_dim = shape[0] if points_dim is None else points_dim
             trajs_lenth = shape[1]
             if isinstance(each_points_num, np.ndarray):
                 trajs_num = len(each_points_num) if trajs_num is None else trajs_num
@@ -263,9 +269,9 @@ class TrajInfo(object):
                         )
         if log:
             print(
-                f"trajs_num: {trajs_num}, each_points_num: {each_points_num}, max_points_num: {max_points_num}, features_num: {features_num}"
+                f"trajs_num: {trajs_num}, each_points_num: {each_points_num}, max_points_num: {max_points_num}, points_dim: {points_dim}"
             )
-        return cls(trajs_num, each_points_num, max_points_num, features_num)
+        return cls(trajs_num, each_points_num, max_points_num, points_dim)
 
     def _make_trajs(self, type: str = "mixed_h"):
         """
@@ -275,15 +281,15 @@ class TrajInfo(object):
         self._type = type
         if "time" in type:
             trajs = np.full(
-                (int(self.max_points_num), self.trajs_num, self.features_num), np.nan
+                (int(self.max_points_num), self.trajs_num, self.points_dim), np.nan
             )
         elif "mixed" in type:
             trajs = np.full(
-                (self.features_num, int(self.max_points_num * self.trajs_num)), np.nan
+                (self.points_dim, int(self.max_points_num * self.trajs_num)), np.nan
             )
         elif "series" in type:
             trajs = np.full(
-                (self.features_num, int(np.sum(self.each_points_num))), np.nan
+                (self.points_dim, int(np.sum(self.each_points_num))), np.nan
             )
 
         if "v" in type or type == "traj_times":
@@ -305,7 +311,11 @@ class TrajInfo(object):
 class TrajTools(object):
     @staticmethod
     def construct_trajs(
-        trajs: dict, feature, num_key=None, series_type=None, mixed_type=None
+        trajs: dict,
+        feature: str,
+        series_type=None,
+        mixed_type=None,
+        show_info=False,
     ) -> Tuple[Union[tuple, np.ndarray], TrajInfo]:
         """
         按时间(行坐标)组合多组轨迹数据（列坐标；一般是由TrajsRecorder记录的）；且有额外两种拼接功能：
@@ -333,32 +343,27 @@ class TrajTools(object):
         ), f"Trajectory number must be continous: 轨迹数为{trajs_num}，但是end_key={end_key}"
         # 每个轨迹的点数以及最大点数
         each_points_num = np.zeros(trajs_num)
-        if num_key is not None:
-            for i in range(trajs_num):
-                each_points_num[i] = trajs[str(i)][num_key]
-            max_points_num = np.max(each_points_num)
-        else:
-            for i in range(trajs_num):
-                each_points_num[i] = len(trajs[str(i)][feature])
-            max_points_num = np.max(each_points_num)
+        for i in range(trajs_num):
+            each_points_num[i] = len(trajs[str(i)][feature])
+        max_points_num = np.max(each_points_num)
         try:
-            features_num = len(trajs["0"][feature][0])  # 特征数
+            features_dim = len(trajs["0"][feature][0])  # 特征维度
         except TypeError:
-            features_num = 1
+            features_dim = 1
         # 按时间组合（时间以最大点数轨迹为准）
-        if features_num == 1:
+        if features_dim == 1:
             time_trajs = np.full((int(max_points_num), trajs_num), np.nan)
         else:
-            time_trajs = np.full((int(max_points_num), trajs_num, features_num), np.nan)
+            time_trajs = np.full((int(max_points_num), trajs_num, features_dim), np.nan)
         if series_type is not None:
             all_points_num = int(sum(each_points_num))
             # default grow vertically
-            trajs_series = np.zeros((all_points_num, features_num))
+            trajs_series = np.zeros((all_points_num, features_dim))
         else:
             trajs_series = None
         if mixed_type is not None:
             trajs_mixed = np.full(
-                (int(max_points_num * trajs_num), features_num), np.nan
+                (int(max_points_num * trajs_num), features_dim), np.nan
             )
         else:
             trajs_mixed = None
@@ -374,7 +379,11 @@ class TrajTools(object):
                     current_points_num : current_points_num + points_num, :
                 ] = time_trajs[:, i][:points_num, :]
                 current_points_num += points_num
-        info = TrajInfo(trajs_num, each_points_num, max_points_num, features_num)
+        info = TrajInfo(trajs_num, each_points_num, max_points_num, features_dim)
+        if show_info:
+            print("Number of trajectories: ", trajs_num)
+            print("Number of features: ", features_dim)
+            print("Number of each points: ", each_points_num)
         if series_type is not None or mixed_type is not None:
             if series_type == "h":
                 trajs_series = trajs_series.T
@@ -411,15 +420,15 @@ class TrajTools(object):
         each_points_num: np.ndarray,
         trajs_num: int,
         max_points_num: int,
-        features_num: int = None,
+        points_dim: int = None,
         grow_type: str = "h",
     ) -> np.ndarray:
         """将按轨迹串行拼接的轨迹数据还原为按时间拼接的轨迹数据"""
         if grow_type != "h":
             trajs_series = trajs_series.T
-        if features_num is None:
-            features_num = trajs_series.shape[0]
-        trajs_mixed = np.full((features_num, (int(max_points_num * trajs_num))), np.nan)
+        if points_dim is None:
+            points_dim = trajs_series.shape[0]
+        trajs_mixed = np.full((points_dim, (int(max_points_num * trajs_num))), np.nan)
         base = 0
         for i in range(trajs_num):
             points_num = int(each_points_num[i])
@@ -459,7 +468,7 @@ class TrajTools(object):
                 info.each_points_num,
                 info.trajs_num,
                 info.max_points_num,
-                info.features_num,
+                info.points_dim,
             )
         elif "time" in in_type:
             trajs = TrajTools.mixed_trajs_from_time_trajs(
@@ -623,7 +632,7 @@ class TrajTools(object):
         each_points_num[each_points_num > end_point] = end_point
         each_points_num -= start_point
         max_points_num = int(end_point - start_point)
-        features_num = trajs_info.features_num
+        points_dim = trajs_info.points_dim
         # 删除点数为0的轨迹
         slices = each_points_num > 0
         trajs = np.array(trajs)[slices].tolist()
@@ -633,7 +642,7 @@ class TrajTools(object):
         if grow_type != "h":
             trajs_mixed = trajs_mixed.T
         # 初始子矩阵
-        sub_trajs = np.zeros((features_num, int(trajs_num * max_points_num)))
+        sub_trajs = np.zeros((points_dim, int(trajs_num * max_points_num)))
         start_bias = start_point * trajs_info.trajs_num
         end_bias = end_point * trajs_info.trajs_num
         for i, index in enumerate(trajs):
@@ -643,7 +652,7 @@ class TrajTools(object):
                 :, base : end : trajs_info.trajs_num
             ]
         return sub_trajs, TrajInfo(
-            trajs_num, each_points_num, max_points_num, features_num
+            trajs_num, each_points_num, max_points_num, points_dim
         )
 
     @classmethod
@@ -666,7 +675,7 @@ class TrajTools(object):
         trajs = np.array(trajs)[new_each_points_num > 0].tolist()
         new_each_points_num = new_each_points_num[new_each_points_num > 0]
         new_series_trajs = np.zeros(
-            (trajs_info.features_num, int(np.sum(new_each_points_num)))
+            (trajs_info.points_dim, int(np.sum(new_each_points_num)))
         )
         # 获取全部轨迹
         base = 0
@@ -692,7 +701,7 @@ class TrajTools(object):
             len(trajs),
             new_each_points_num,
             np.max(new_each_points_num),
-            trajs_info.features_num,
+            trajs_info.points_dim,
         )
 
     @staticmethod
@@ -902,7 +911,9 @@ class TrajsPainter(object):
             self.set_default()
 
     def set_default(self):
-        features_num = self._trajs_info.features_num
+        """设置默认的绘图参数"""
+        # 在绘图时认为points的每个维度都是一个特征
+        features_num = self._trajs_info.points_dim
         self.features_axis_labels = tuple([rf"$x_{i}$" for i in range(features_num)])
         self._features_lines = ("k",) * features_num
         self.features_scatters = (None,) * features_num
@@ -943,7 +954,7 @@ class TrajsPainter(object):
                 info.each_points_num,
                 info.trajs_num,
                 info.max_points_num,
-                info.features_num,
+                info.points_dim,
             )
         elif "time" in type:
             trajs = TrajTools.mixed_trajs_from_time_trajs(
@@ -1138,7 +1149,7 @@ class TrajsPainter(object):
     @features_lines.setter
     def features_lines(self, lines: Union[str, tuple]):
         if isinstance(lines, str):
-            self._features_lines = tuple([lines] * self._trajs_info.features_num)
+            self._features_lines = tuple([lines] * self._trajs_info.points_dim)
         else:
             self._features_lines = lines
 
@@ -1149,7 +1160,7 @@ class TrajsPainter(object):
     @features_self_labels.setter
     def features_self_labels(self, labels: Union[str, tuple]):
         if isinstance(labels, str):
-            self._features_self_labels = tuple([labels] * self._trajs_info.features_num)
+            self._features_self_labels = tuple([labels] * self._trajs_info.points_dim)
         else:
             self._features_self_labels = labels
 
