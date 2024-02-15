@@ -49,9 +49,13 @@ def split_path(path: str, with_slash=False):
 import os
 
 
-def get_current_dir(upper: int = 0) -> str:
-    """获取当前工作目录的绝对路径"""
-    current_path = os.getcwd()
+def get_current_dir(c_f, upper: int = 0) -> str:
+    """
+    获取当前工作目录的绝对路径；
+    c_f: the current file, which is __file__ in the caller file
+    upper: 向上n层的路径，默认n=0，即当前目录
+    """
+    current_path = os.path.dirname(os.path.abspath(c_f))
     if upper > 0:
         current_path = get_upper_path(current_path, upper)
     return current_path
