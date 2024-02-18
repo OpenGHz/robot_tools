@@ -16,13 +16,23 @@ class TrajsRecorder(object):
         注：该类中的轨迹数据是按时间点组织的，即每个特征对应的轨迹应为“垂直生长（或叫向下生长）”。
         """
         self._traj = {feature: [] for feature in features}
-        self._features = features  # list类型
-        self._features_num = len(self._features)
         self._trajs = {0: deepcopy(self._traj)}
+        self._features = features  # list类型（set类型可能打乱默认顺序）
+        self._features_num = len(self._features)
         self._recorded = False
         self._path = path
         self._each_points_num = None
         self._not_count_features = set()
+        self.feature_add_cnt = 0
+        self.features_add_cnt = 0
+
+    def add_new_features(self, features: List[str]) -> None:
+        """添加新的特征种类名(需在记录数据前完成配置，否则轨迹会被刷新而丢失)；"""
+        assert set(features).isdisjoint(self._features), "Features name conflict"
+        self._features.extend(features)
+        self._features_num = len(self._features)
+        self._traj = {feature: [] for feature in features}
+        self._trajs = {0: deepcopy(self._traj)}
 
     def set_not_count_features(self, features: Set[str]) -> None:
         """
@@ -54,18 +64,26 @@ class TrajsRecorder(object):
                 elif not isinstance(value, (int, float)):
                     value = float(value)
             self._trajs[traj_id][feature].append(value)
+            self.feature_add_cnt += 1
         else:
             self._trajs[traj_id][feature] = value
+            self.feature_add_cnt += len(value)
 
-    def features_add(self, traj_id: int, features_val: list) -> None:
+    def features_add(
+        self, traj_id: int, features_val: list, features_name: Optional[list] = None
+    ) -> None:
         """
         添加多个特征值到指定轨迹中（自动增添轨迹ID）;
         features_val: 与features对应的特征值列表, 顺序与features一致的子集;
         始终从第一个特征开始添加，若特征值列表长度小于特征数，则多余的特征值将被忽略；
-        TODO: 若特征值列表长度大于特征数，是否应该抛出异常；通过名称表指定任意顺序的特征。
         """
+        if features_name is None:
+            features_name = self._features
+        else:
+            assert len(features_name) == len(features_val), "Features name length error"
         for i, val in enumerate(features_val):
-            self.feature_add(traj_id, self._features[i], val)
+            self.feature_add(traj_id, features_name[i], val)
+        self.features_add_cnt += 1
 
     def check(self, trajs=None, not_counted=None) -> bool:
         """检查轨迹数据是否完整（每个轨迹中的所有计数特征是否有相同的长度；各个轨迹是否有相同的特征种类）"""
@@ -362,9 +380,7 @@ class TrajTools(object):
         else:
             trajs_series = None
         if mixed_type is not None:
-            trajs_mixed = np.full(
-                (int(max_points_num * trajs_num), points_dim), np.nan
-            )
+            trajs_mixed = np.full((int(max_points_num * trajs_num), points_dim), np.nan)
         else:
             trajs_mixed = None
         current_points_num = 0
@@ -1163,4 +1179,3 @@ class TrajsPainter(object):
             self._features_self_labels = tuple([labels] * self._trajs_info.points_dim)
         else:
             self._features_self_labels = labels
-
