@@ -54,6 +54,7 @@ def get_current_dir(c_f, upper: int = 0) -> str:
     获取当前工作目录的绝对路径；
     c_f: the current file, which is __file__ in the caller file
     upper: 向上n层的路径，默认n=0，即当前目录
+    返回路径末尾无/
     """
     current_path = os.path.dirname(os.path.abspath(c_f))
     if upper > 0:
@@ -81,9 +82,9 @@ else:
     __ROS_PKG_NOT_FOUND__ = False
 
 from typing import Union, Tuple
+import logging
 
-
-def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], str]:
+def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], str, None]:
     """获取指定ROS包和工作空间的绝对路径
     pkg_name: the name of the package
     ws_name: the name of the workspace, which is set to None by default
@@ -92,9 +93,12 @@ def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], 
     """
     # 借助rospack工具和上述字符串处理函数找到包和工作空间的绝对路径
     rospack = rospkg.RosPack()
-    PKG_DIRECTORY = rospack.get_path(
-        pkg_name
-    )  # 获取ros包路径（例如：***/graspnet_pkg）
+    # 获取ros包路径（例如：***/graspnet_pkg）
+    try:
+        PKG_DIRECTORY = rospack.get_path(pkg_name)
+    except Exception as e:
+        logging.error(f"未找到{pkg_name}")
+        return None
     if ws_name is not None:
         WS_DIRECTORY = remove_str_after_target(
             PKG_DIRECTORY, ws_name
@@ -105,9 +109,9 @@ def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], 
 
 
 if __name__ == "__main__":
-    cp = get_current_dir()
+    cp = get_current_dir(__file__)
     pp = get_pather_dir() + ":"
     up = get_upper_path(pp, 2) + ":"
     rp = get_ros_pkg_and_workspace_path("graspnet_pkg", "graspnet_ws")
     sp = split_path(pp)
-    print(pp, up, rp, sp)
+    print(cp, pp, up, rp, sp)
