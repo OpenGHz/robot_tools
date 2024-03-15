@@ -88,18 +88,32 @@ class CAN_Tools(object):
 
     @staticmethod
     def activate_can_interface(interface, bitrate):
-        # 使用 ip link set 命令激活 CAN 接口
-        subprocess.run(['sudo', 'ip', 'link', 'set', interface, 'up', 'type', 'can', f'bitrate', str(bitrate)])
+        # 构造要执行的命令
+        command = f'sudo ip link set {interface} up type can bitrate {bitrate}'
+
+        # 使用 Popen 执行命令并自动输入密码
+        proc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+
+        # 获取命令执行结果
+        return_code = proc.returncode
+        if return_code == 0:
+            return True, stdout.decode()
+        else:
+            return False, stderr.decode()
 
     @classmethod
-    def test(cls, interface = 'can0', desired_bitrate = 1000000):
-
+    def test(cls, interface = 'can0', bitrate = 1000000):
         if cls.check_can_status(interface):
             print(f'{interface} 已激活')
+            return
         else:
-            print(f'{interface} 未激活，正在进行激活...')
-            cls.activate_can_interface(interface, desired_bitrate)
-            print(f'{interface} 激活成功')
+            print(f"激活 {interface} ：")
+        success, output = cls.activate_can_interface(interface, bitrate)
+        if success:
+            print(output)
+        else:
+            print(output)
 
 
 class Caner(object):
@@ -295,21 +309,33 @@ if __name__ == "__main__":
     This example shows how sending a single message works.
     """
 
-    def send_one():
-        """Sends a single message."""
-        # this uses the default configuration (for example from the config file)
-        # see https://python-can.readthedocs.io/en/stable/configuration.html
-        with can.Bus() as bus:
-            msg = can.Message(
-                arbitration_id=0xC0FFEE,
-                data=[0, 25, 0, 1, 3, 1, 4, 1],
-                is_extended_id=True,
-            )
+    import argparse
+    parser = argparse.ArgumentParser(description="Test caner.")
+    parser.add_argument("--interface", default="socketcan", help="SocketCAN interface")
+    parser.add_argument("--channel", default="can0", help="SocketCAN channel")
+    parser.add_argument("--bitrate", type=int, default=1e6, help="Bitrate")
+    parser.add_argument("--test_mode", type=int, default=0, help="Test mode")
+    args, unknown = parser.parse_known_args()
 
-            try:
-                bus.send(msg)
-                print(f"Message sent on {bus.channel_info}")
-            except can.CanError:
-                print("Message NOT sent")
 
-    send_one()
+    if args.test_mode == 0:
+        CAN_Tools.test(args.channel, args.bitrate)
+    elif args.test_mode == 1:
+        def send_one():
+            """Sends a single message."""
+            # this uses the default configuration (for example from the config file)
+            # see https://python-can.readthedocs.io/en/stable/configuration.html
+            with can.Bus() as bus:
+                msg = can.Message(
+                    arbitration_id=0xC0FFEE,
+                    data=[0, 25, 0, 1, 3, 1, 4, 1],
+                    is_extended_id=True,
+                )
+
+                try:
+                    bus.send(msg)
+                    print(f"Message sent on {bus.channel_info}")
+                except can.CanError:
+                    print("Message NOT sent")
+
+        send_one()
