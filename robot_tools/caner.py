@@ -76,6 +76,9 @@ class CAN_Tools(object):
 
     @staticmethod
     def check_can_status(interface):
+        """
+        interface: e.g. 'can0'
+        """
         # 使用 ip link show 命令获取网络接口状态
         result = subprocess.run(['ip', 'link', 'show', interface], capture_output=True, text=True)
         output = result.stdout.strip()
@@ -88,6 +91,10 @@ class CAN_Tools(object):
 
     @staticmethod
     def activate_can_interface(interface, bitrate):
+        """
+        interface: e.g. 'can0'
+        bitrate: e.g. 1000000
+        """
         # 构造要执行的命令
         command = f'sudo ip link set {interface} up type can bitrate {bitrate}'
 
