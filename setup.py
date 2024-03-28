@@ -2,7 +2,7 @@ from setuptools import setup,find_packages
 
 setup(
     name='robotics_tools',
-    version='1.0.0',
+    version='1.0.1',
     packages=find_packages(),
     package_dir={"": "."},
     install_requires=['numpy>=1.19.5','scipy','matplotlib'],
