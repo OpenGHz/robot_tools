@@ -1,13 +1,13 @@
 from . import transformations
 import numpy as np
-from typing import Union
+from typing import Union, Tuple
 
 
 class CoordinateTools(object):
     """坐标系转换工具类:
     position: 位置，三维向量
-    orientation: 姿态，四元数(xyzw)或欧拉角(rpy,按sxyz;函数返回的姿态为欧拉角), r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]
-    pose: 位姿，位置和姿态的组合;tuple/list, (position, orientation)
+    orientation: 姿态，四元数(xyzw)或欧拉角(rpy,按sxyz;函数返回的姿态均为欧拉角), r:[-pi,pi],p:[-pi/2,pi/2],y:[-pi,pi]
+    pose: 位姿，位置和姿态的组合;tuple/list, (position:ndarray, orientation:ndarray)
     error: target - current；姿态各轴角度误差为向量夹角，即范围为[0,pi]
     """
 
@@ -37,11 +37,19 @@ class CoordinateTools(object):
         trans_tf = np.matmul(trans_t, trans_q)
         return trans_tf
 
+    @staticmethod
+    def to_pose(transform_matrix: np.ndarray) -> tuple:
+        """将变换矩阵转换为位姿"""
+        t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
+            transform_matrix
+        )
+        return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
     @classmethod
     def tf_compute_series(
         cls, source_in_base: tuple, target_in_source: tuple
     ) -> np.ndarray:
-        """计算两个串联关系位姿之间的变换矩阵"""
+        """计算两个串联关系位姿头尾的相对位姿"""
         source_in_base = cls.to_transform_matrix(*source_in_base)
         target_in_source = cls.to_transform_matrix(*target_in_source)
         target_in_base = np.matmul(source_in_base, target_in_source)
@@ -54,12 +62,25 @@ class CoordinateTools(object):
     def tf_compute_parallel(
         cls, source_in_base: tuple, target_in_base: tuple
     ) -> np.ndarray:
-        """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
+        """目标在世界坐标系下的位姿转换为在机器人(source)坐标系下的位姿"""
         target_in_base = cls.to_transform_matrix(*target_in_base)
         source_in_base = cls.to_transform_matrix(*source_in_base)
         target_in_source = np.matmul(np.linalg.inv(source_in_base), target_in_base)
         t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
             target_in_source
+        )
+        return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
+    @classmethod
+    def tf_compute_parallel_reverse(
+        cls, base_in_source: tuple, base_in_target: tuple
+    ) -> np.ndarray:
+        """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
+        source_to_base = cls.to_transform_matrix(*base_in_source)
+        target_to_base = cls.to_transform_matrix(*base_in_target)
+        source_to_target = np.matmul(source_to_base, np.linalg.inv(target_to_base))
+        t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
+            source_to_target
         )
         return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
 
@@ -99,6 +120,36 @@ class CoordinateTools(object):
         return np.array(
             transformations.euler_from_matrix(target_in_base), dtype=np.float64
         )
+
+    @classmethod
+    def custom_to_raw(cls, custom_pose: tuple, raw_in_custom=None, custom_in_raw=None) -> tuple:
+        """将自定义参考系下的位姿转换为原始参考系下的位姿"""
+        if raw_in_custom is not None:
+            return cls.tf_compute_series(custom_pose, raw_in_custom)
+        elif custom_in_raw is not None:
+            return cls.tf_compute_parallel_reverse(custom_pose, custom_pose)
+        else:
+            raise ValueError("The raw_in_custom or custom_in_raw must be provided!")
+
+    @staticmethod
+    def raw_to_custom(raw_pose: tuple, custom_in_raw: tuple) -> tuple:
+        """将原始参考系下的位姿转换为自定义参考系下的位姿"""
+        return CoordinateTools.tf_compute_series(raw_pose, custom_in_raw)
+
+    @classmethod
+    def pose_reverse(cls, position: np.ndarray, orientation: np.ndarray) -> tuple:
+        """将位姿的位置和姿态反向（参考系交换，本质求逆变换矩阵）"""
+        mx = cls.to_transform_matrix(position, orientation)
+        mx_inv = np.linalg.inv(mx)
+        t_scale, t_shear, t_angles, t_trans, t_persp = transformations.decompose_matrix(
+            mx_inv
+        )
+        return np.array(t_trans, dtype=np.float64), np.array(t_angles, dtype=np.float64)
+
+    @staticmethod
+    def matrix_inverse(matrix: np.ndarray) -> np.ndarray:
+        """矩阵求逆"""
+        return np.linalg.inv(matrix)
 
     @classmethod
     def to_target_position(
