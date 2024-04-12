@@ -84,8 +84,9 @@ class ImageRecorderRos:
         camera_names,
         is_debug=False,
         topic_names=None,
+        image_shape=(480, 640, 3),
         show_images=True,
-        image_shape=None,
+        fps=30,
     ):
         print("Starting ROS image recorder...")
         from collections import deque

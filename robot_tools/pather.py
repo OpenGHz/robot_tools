@@ -73,6 +73,8 @@ def create_dir(path: str):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def get_home_dir():
+    return os.path.expanduser("~")
 
 try:
     import rospkg
