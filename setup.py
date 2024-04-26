@@ -11,11 +11,12 @@ setup(
         "matplotlib",
         "python-socketio",
         "eventlet",
+        "python-xlib",
     ],
     author="OpenGHz",
     author_email="ghz23@mails.tsinghua.edu.cn",
     description="Robot Tools for develop your robots.",
-    url="https://gitlab.com/OpenGHz/airbot_play_vision_python.git",
+    url="https://github.com/OpenGHz/robot_tools.git",
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3",
