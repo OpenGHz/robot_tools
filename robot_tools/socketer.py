@@ -125,9 +125,10 @@ class SimpleServer(object):
         def message(sid, data):
             print(f"{self.name}: Message from client {sid}: {data}")
             # "Received your message!"
-            self.sio.emit(
-                "response", {f"{self.name}": response}, room=sid
-            )
+            if response is not None:
+                self.sio.emit(
+                    "response", {f"{self.name}": response}, room=sid
+                )
 
         if host_port is not None:
             self.start(*host_port)
