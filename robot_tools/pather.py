@@ -76,6 +76,22 @@ def create_dir(path: str):
 def get_home_dir():
     return os.path.expanduser("~")
 
+def get_all_names(directory):
+    contents = {'files': [], 'folders': []}
+    for item in os.listdir(directory):
+        item_path = os.path.join(directory, item)
+        if os.path.isfile(item_path):
+            contents['files'].append(item)
+        elif os.path.isdir(item_path):
+            contents['folders'].append(item)
+    return contents
+
+def get_file_names(directory):
+    return get_all_names(directory)['files']
+
+def get_folder_names(directory):
+    return get_all_names(directory)['folders']
+
 try:
     import rospkg
 except:
@@ -117,3 +133,9 @@ if __name__ == "__main__":
     rp = get_ros_pkg_and_workspace_path("graspnet_pkg", "graspnet_ws")
     sp = split_path(pp)
     print(cp, pp, up, rp, sp)
+
+    directory_path = '.'
+    directory_contents = get_all_names(directory_path)
+
+    print('Files:', directory_contents['files'])
+    print('Folders:', directory_contents['folders'])
