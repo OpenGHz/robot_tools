@@ -92,6 +92,26 @@ def get_file_names(directory):
 def get_folder_names(directory):
     return get_all_names(directory)['folders']
 
+import re
+
+
+def get_matching_files(pattern, directory='.'):
+    """
+    获取指定目录下符合正则表达式的文件名列表。
+    
+    :param pattern: 正则表达式模式。
+    :param directory: 要搜索的目录，默认为当前目录。
+    :return: 符合正则表达式的文件名列表。
+    """
+    # 编译正则表达式模式
+    regex = re.compile(pattern)
+    # 获取目录中的所有文件和子目录
+    files = os.listdir(directory)
+    # 筛选符合正则表达式的文件
+    matching_files = [f for f in files if os.path.isfile(os.path.join(directory, f)) and regex.match(f)]
+    
+    return matching_files
+
 try:
     import rospkg
 except:
@@ -101,6 +121,7 @@ else:
 
 from typing import Union, Tuple
 import logging
+
 
 def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], str, None]:
     """获取指定ROS包和工作空间的绝对路径
@@ -127,6 +148,7 @@ def get_ros_pkg_and_workspace_path(pkg_name, ws_name=None) -> Union[Tuple[str], 
 
 
 if __name__ == "__main__":
+
     cp = get_current_dir(__file__)
     pp = get_pather_dir() + ":"
     up = get_upper_path(pp, 2) + ":"
@@ -139,3 +161,9 @@ if __name__ == "__main__":
 
     print('Files:', directory_contents['files'])
     print('Folders:', directory_contents['folders'])
+
+    # 示例使用
+    pattern = r'^test_\d+\.txt$'  # 例如匹配类似 "test_123.txt" 的文件名
+    matching_files = get_matching_files(pattern)
+
+    print("Matching files:", matching_files)
